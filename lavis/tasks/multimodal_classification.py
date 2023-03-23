@@ -52,15 +52,13 @@ class MultimodalClassificationTask(BaseTask):
         eval_result_file = self.save_result(
             result=val_result,
             result_dir=registry.get_path("result_dir"),
-            filename="{}_epoch{}".format(split_name, epoch),
+            filename=f"{split_name}_epoch{epoch}",
             remove_duplicate=self.inst_id_key,
         )
 
-        metrics = self._report_metrics(
+        return self._report_metrics(
             eval_result_file=eval_result_file, split_name=split_name
         )
-
-        return metrics
 
     @main_process
     def _report_metrics(self, eval_result_file, split_name):
@@ -72,7 +70,7 @@ class MultimodalClassificationTask(BaseTask):
         accuracy = (targets == predictions).sum() / targets.shape[0]
         metrics = {"agg_metrics": accuracy, "acc": accuracy}
 
-        log_stats = {split_name: {k: v for k, v in metrics.items()}}
+        log_stats = {split_name: dict(metrics)}
 
         with open(
             os.path.join(registry.get_path("output_dir"), "evaluate.txt"), "a"

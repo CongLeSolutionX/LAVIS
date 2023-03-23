@@ -317,8 +317,7 @@ class Blip2Qformer(Blip2Base):
             pad_token_id=self.tokenizer.pad_token_id,
             **model_kwargs
         )
-        captions = self.tokenizer.batch_decode(outputs, skip_special_tokens=True)
-        return captions
+        return self.tokenizer.batch_decode(outputs, skip_special_tokens=True)
 
     def forward_image(self, image):
         image_embeds = self.ln_vision(self.visual_encoder(image))

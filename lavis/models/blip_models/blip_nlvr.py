@@ -126,8 +126,7 @@ class BlipNLVR(BlipBase, MomentumDistilationMixin):
             return {"predictions": prediction, "targets": targets}
 
     def predict(self, samples):
-        output = self.forward(samples, is_train=False)
-        return output
+        return self.forward(samples, is_train=False)
 
     @classmethod
     def from_config(cls, cfg=None):
@@ -139,9 +138,9 @@ class BlipNLVR(BlipBase, MomentumDistilationMixin):
 
         num_classes = cfg.get("num_classes", 3)
 
-        assert num_classes > 1, "Invalid number of classes provided, found {}".format(
-            num_classes
-        )
+        assert (
+            num_classes > 1
+        ), f"Invalid number of classes provided, found {num_classes}"
 
         model = cls(
             image_encoder=image_encoder,
@@ -182,6 +181,6 @@ class BlipNLVR(BlipBase, MomentumDistilationMixin):
                 state_dict[new_key1] = state_dict[key]
 
         msg = self.load_state_dict(state_dict, strict=False)
-        print("load checkpoint from %s" % url_or_filename)
+        print(f"load checkpoint from {url_or_filename}")
         print(f"missing keys {msg.missing_keys}")
         return msg

@@ -79,7 +79,7 @@ class RetrievalEvalDataset(BaseDataset, __DisplMixin):
         for img_id, ann in enumerate(self.annotation):
             self.image.append(ann["image"])
             self.img2txt[img_id] = []
-            for i, caption in enumerate(ann["caption"]):
+            for caption in ann["caption"]:
                 self.text.append(self.text_processor(caption))
                 self.img2txt[img_id].append(txt_id)
                 self.txt2img[txt_id] = img_id
@@ -147,7 +147,7 @@ class VideoRetrievalEvalDataset(BaseDataset, __DisplMixin):
         for img_id, ann in enumerate(self.annotation):
             self.image.append(ann["video"])
             self.img2txt[img_id] = []
-            for i, caption in enumerate(ann["caption"]):
+            for caption in ann["caption"]:
                 self.text.append(self.text_processor(caption))
                 self.img2txt[img_id].append(txt_id)
                 self.txt2img[txt_id] = img_id

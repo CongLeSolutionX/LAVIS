@@ -42,11 +42,7 @@ def app():
     col1, col2 = st.columns(2)
     col1.header("Image")
     col2.header("GradCam")
-    if file:
-        raw_img = Image.open(file).convert("RGB")
-    else:
-        raw_img = load_demo_image()
-
+    raw_img = Image.open(file).convert("RGB") if file else load_demo_image()
     w, h = raw_img.size
     scaling_factor = 720 / w
     resized_image = raw_img.resize((int(w * scaling_factor), int(h * scaling_factor)))

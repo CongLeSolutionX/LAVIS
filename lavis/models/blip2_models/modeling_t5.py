@@ -149,7 +149,7 @@ def load_tf_weights_in_t5(model, config, tf_checkpoint_path):
                     pointer = getattr(pointer, "final_layer_norm")
             elif scope_names[0] == "scale":
                 pointer = getattr(pointer, "weight")
-            elif scope_names[0] == "output_bias" or scope_names[0] == "beta":
+            elif scope_names[0] in ["output_bias", "beta"]:
                 pointer = getattr(pointer, "bias")
             elif scope_names[0] == "squad":
                 pointer = getattr(pointer, "classifier")
@@ -290,8 +290,6 @@ except ImportError:
     pass
 except Exception:
     logger.warning("discovered apex but it failed to load, falling back to T5LayerNorm")
-    pass
-
 ALL_LAYERNORM_LAYERS.append(T5LayerNorm)
 
 
@@ -650,10 +648,7 @@ class T5LayerSelfAttention(nn.Module):
             output_attentions=output_attentions,
         )
         hidden_states = hidden_states + self.dropout(attention_output[0])
-        outputs = (hidden_states,) + attention_output[
-            1:
-        ]  # add attentions if we output them
-        return outputs
+        return (hidden_states,) + attention_output[1:]
 
 
 class T5LayerCrossAttention(nn.Module):
@@ -688,10 +683,7 @@ class T5LayerCrossAttention(nn.Module):
             output_attentions=output_attentions,
         )
         layer_output = hidden_states + self.dropout(attention_output[0])
-        outputs = (layer_output,) + attention_output[
-            1:
-        ]  # add attentions if we output them
-        return outputs
+        return (layer_output,) + attention_output[1:]
 
 
 class T5Block(nn.Module):
@@ -765,8 +757,10 @@ class T5Block(nn.Module):
                 hidden_states, min=-clamp_value, max=clamp_value
             )
 
-        do_cross_attention = self.is_decoder and encoder_hidden_states is not None
-        if do_cross_attention:
+        if (
+            do_cross_attention := self.is_decoder
+            and encoder_hidden_states is not None
+        ):
             # the actual query length is unknown for cross attention
             # if using past key value states. Need to inject it here
             if present_key_value_state is not None:
@@ -843,12 +837,11 @@ class T5PreTrainedModel(PreTrainedModel):
     def dummy_inputs(self):
         input_ids = torch.tensor(DUMMY_INPUTS)
         input_mask = torch.tensor(DUMMY_MASK)
-        dummy_inputs = {
+        return {
             "decoder_input_ids": input_ids,
             "input_ids": input_ids,
             "decoder_attention_mask": input_mask,
         }
-        return dummy_inputs
 
     def _init_weights(self, module):
         """Initialize the weights"""
@@ -957,7 +950,7 @@ class T5Stack(T5PreTrainedModel):
 
         self.block = nn.ModuleList(
             [
-                T5Block(config, has_relative_attention_bias=bool(i == 0))
+                T5Block(config, has_relative_attention_bias=i == 0)
                 for i in range(config.num_layers)
             ]
         )
@@ -986,13 +979,13 @@ class T5Stack(T5PreTrainedModel):
         self.first_device = (
             "cpu"
             if "cpu" in self.device_map.keys()
-            else "cuda:" + str(min(self.device_map.keys()))
+            else f"cuda:{str(min(self.device_map.keys()))}"
         )
-        self.last_device = "cuda:" + str(max(self.device_map.keys()))
+        self.last_device = f"cuda:{str(max(self.device_map.keys()))}"
         # Load onto devices
         for k, v in self.device_map.items():
             for layer in v:
-                cuda_device = "cuda:" + str(k)
+                cuda_device = f"cuda:{str(k)}"
                 self.block[layer] = self.block[layer].to(cuda_device)
 
         # Set embed_tokens to first layer
@@ -1251,8 +1244,8 @@ class T5Stack(T5PreTrainedModel):
             # Model Parallel: If it's the last layer for that device, put things on the next device
             if self.model_parallel:
                 for k, v in self.device_map.items():
-                    if i == v[-1] and "cuda:" + str(k) != self.last_device:
-                        hidden_states = hidden_states.to("cuda:" + str(k + 1))
+                    if i == v[-1] and f"cuda:{str(k)}" != self.last_device:
+                        hidden_states = hidden_states.to(f"cuda:{str(k + 1)}")
 
         hidden_states = self.final_layer_norm(hidden_states)
         hidden_states = self.dropout(hidden_states)
@@ -1261,8 +1254,16 @@ class T5Stack(T5PreTrainedModel):
         if output_hidden_states:
             all_hidden_states = all_hidden_states + (hidden_states,)
 
-        if not return_dict:
-            return tuple(
+        return (
+            BaseModelOutputWithPastAndCrossAttentions(
+                last_hidden_state=hidden_states,
+                past_key_values=present_key_value_states,
+                hidden_states=all_hidden_states,
+                attentions=all_attentions,
+                cross_attentions=all_cross_attentions,
+            )
+            if return_dict
+            else tuple(
                 v
                 for v in [
                     hidden_states,
@@ -1273,12 +1274,6 @@ class T5Stack(T5PreTrainedModel):
                 ]
                 if v is not None
             )
-        return BaseModelOutputWithPastAndCrossAttentions(
-            last_hidden_state=hidden_states,
-            past_key_values=present_key_value_states,
-            hidden_states=all_hidden_states,
-            attentions=all_attentions,
-            cross_attentions=all_cross_attentions,
         )
 
 
@@ -1574,10 +1569,13 @@ class T5Model(T5PreTrainedModel):
         )
 
         # FutureWarning: head_mask was separated into two input args - head_mask, decoder_head_mask
-        if head_mask is not None and decoder_head_mask is None:
-            if self.config.num_layers == self.config.num_decoder_layers:
-                warnings.warn(__HEAD_MASK_WARNING_MSG, FutureWarning)
-                decoder_head_mask = head_mask
+        if (
+            head_mask is not None
+            and decoder_head_mask is None
+            and self.config.num_layers == self.config.num_decoder_layers
+        ):
+            warnings.warn(__HEAD_MASK_WARNING_MSG, FutureWarning)
+            decoder_head_mask = head_mask
 
         # Encode if needed (training, first prediction pass)
         if encoder_outputs is None:
@@ -1628,18 +1626,19 @@ class T5Model(T5PreTrainedModel):
             return_dict=return_dict,
         )
 
-        if not return_dict:
-            return decoder_outputs + encoder_outputs
-
-        return Seq2SeqModelOutput(
-            last_hidden_state=decoder_outputs.last_hidden_state,
-            past_key_values=decoder_outputs.past_key_values,
-            decoder_hidden_states=decoder_outputs.hidden_states,
-            decoder_attentions=decoder_outputs.attentions,
-            cross_attentions=decoder_outputs.cross_attentions,
-            encoder_last_hidden_state=encoder_outputs.last_hidden_state,
-            encoder_hidden_states=encoder_outputs.hidden_states,
-            encoder_attentions=encoder_outputs.attentions,
+        return (
+            Seq2SeqModelOutput(
+                last_hidden_state=decoder_outputs.last_hidden_state,
+                past_key_values=decoder_outputs.past_key_values,
+                decoder_hidden_states=decoder_outputs.hidden_states,
+                decoder_attentions=decoder_outputs.attentions,
+                cross_attentions=decoder_outputs.cross_attentions,
+                encoder_last_hidden_state=encoder_outputs.last_hidden_state,
+                encoder_hidden_states=encoder_outputs.hidden_states,
+                encoder_attentions=encoder_outputs.attentions,
+            )
+            if return_dict
+            else decoder_outputs + encoder_outputs
         )
 
 
@@ -1788,10 +1787,13 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
         )
 
         # FutureWarning: head_mask was separated into two input args - head_mask, decoder_head_mask
-        if head_mask is not None and decoder_head_mask is None:
-            if self.config.num_layers == self.config.num_decoder_layers:
-                warnings.warn(__HEAD_MASK_WARNING_MSG, FutureWarning)
-                decoder_head_mask = head_mask
+        if (
+            head_mask is not None
+            and decoder_head_mask is None
+            and self.config.num_layers == self.config.num_decoder_layers
+        ):
+            warnings.warn(__HEAD_MASK_WARNING_MSG, FutureWarning)
+            decoder_head_mask = head_mask
 
         # Encode if needed (training, first prediction pass)
         if encoder_outputs is None:
@@ -2050,7 +2052,7 @@ class T5EncoderModel(T5PreTrainedModel):
             return_dict if return_dict is not None else self.config.use_return_dict
         )
 
-        encoder_outputs = self.encoder(
+        return self.encoder(
             input_ids=input_ids,
             attention_mask=attention_mask,
             inputs_embeds=inputs_embeds,
@@ -2059,5 +2061,3 @@ class T5EncoderModel(T5PreTrainedModel):
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
         )
-
-        return encoder_outputs

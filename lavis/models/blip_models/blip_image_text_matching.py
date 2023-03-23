@@ -81,9 +81,7 @@ class BlipITM(BlipBase):
                 encoder_attention_mask=image_atts,
                 return_dict=True,
             )
-            itm_output = self.itm_head(output.last_hidden_state[:, 0, :])
-            return itm_output
-
+            return self.itm_head(output.last_hidden_state[:, 0, :])
         elif match_head == "itc":
             text_output = self.text_encoder(
                 text.input_ids,
@@ -96,8 +94,7 @@ class BlipITM(BlipBase):
                 self.text_proj(text_output.last_hidden_state[:, 0, :]), dim=-1
             )
 
-            sim = image_feat @ text_feat.t()
-            return sim
+            return image_feat @ text_feat.t()
     def itm_rank(self, image_embeds, image_atts, encoder_input_ids, match_head='itm'):
         # breakpoint()
         encoder_input_ids = encoder_input_ids.clone()
@@ -125,8 +122,7 @@ class BlipITM(BlipBase):
             image_feat = F.normalize(self.vision_proj(image_embeds[:, 0, :]), dim=-1)
             text_feat = F.normalize(self.text_proj(text_output.last_hidden_state[:, 0, :]), dim=-1)
 
-            sim = image_feat @ text_feat.t()
-            return sim
+            return image_feat @ text_feat.t()
 
     @classmethod
     def from_config(cls, cfg=None):

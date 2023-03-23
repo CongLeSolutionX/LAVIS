@@ -54,11 +54,10 @@ class GPTDialogueProcessor(BaseProcessor):
         bos, eos, speaker1, speaker2, cap = self.tokenizer.convert_tokens_to_ids(
             SPECIAL_TOKENS[:-2]
         )
-        instance = {}
         sequence = [caption] + history + [answer]
         sequence = [s + [eos] for s in sequence]
 
-        instance["input_ids"] = list(chain(*sequence))
+        instance = {"input_ids": list(chain(*sequence))}
         instance["token_type_ids"] = [cap] * len(sequence[0]) + [
             speaker2 if i % 2 else speaker1
             for i, s in enumerate(sequence[1:])
@@ -77,10 +76,9 @@ class GPTDialogueProcessor(BaseProcessor):
     def padding(self, seq, pad_token=-1):
         if pad_token == -1:
             pad_token = self.tokenizer.pad_token_id
-        padded_seq = torch.nn.utils.rnn.pad_sequence(
+        return torch.nn.utils.rnn.pad_sequence(
             seq, batch_first=True, padding_value=pad_token
         )
-        return padded_seq
 
     def get_attention_mask(self, seq, pad_token=-1):
         if pad_token == -1:
@@ -96,16 +94,13 @@ class GPTDialogueProcessor(BaseProcessor):
 
         dial_history = []
         for turn in ann["dialog"][-self.max_turns :]:
-            dial_history.append(turn["question"])
-            dial_history.append(turn["answer"])
+            dial_history.extend((turn["question"], turn["answer"]))
         dial_history.append(ann["question"])
         dial_history = [self.tokenizer.encode(t) for t in dial_history]
 
         answer = self.tokenizer.encode(ann["answer"])
 
-        item = self.sample_sequence(caption, dial_history, answer)
-
-        return item
+        return self.sample_sequence(caption, dial_history, answer)
 
     @classmethod
     def from_config(cls, cfg=None):
@@ -126,10 +121,9 @@ class GPTVideoFeatureProcessor(GPTVideoFeatureBaseProcessor):
         self.tokenizer.add_special_tokens(SPECIAL_TOKENS_DICT)
 
     def padding(self, seq):
-        padded_seq = torch.nn.utils.rnn.pad_sequence(
+        return torch.nn.utils.rnn.pad_sequence(
             seq, batch_first=True, padding_value=1.0
         )
-        return padded_seq
 
     def get_attention_mask(self, seq):
         return torch.sum(seq != 1, dim=2) != 0
@@ -139,20 +133,18 @@ class GPTVideoFeatureProcessor(GPTVideoFeatureBaseProcessor):
 
         for ft_name in self.visual_ft:
             ft_path = os.path.join(ft_root, ft_name, vname)
-            all_ft.append(np.load(ft_path + ".npy"))
+            all_ft.append(np.load(f"{ft_path}.npy"))
 
         for ft_name in self.audio_ft:
             ft_path = os.path.join(ft_root, ft_name, vname)
-            all_ft.append(np.load(ft_path + ".npy"))
+            all_ft.append(np.load(f"{ft_path}.npy"))
 
-        min_len = min([len(ft) for ft in all_ft])
+        min_len = min(len(ft) for ft in all_ft)
 
         # TODO: use other sampling method (e.g. uniform sampling)
         sampled_ft = [ft[:min_len] for ft in all_ft]
         sampled_ft = np.concatenate(sampled_ft, axis=1)
-        item = {}
-        item["video_fts"] = torch.Tensor(sampled_ft)
-
+        item = {"video_fts": torch.Tensor(sampled_ft)}
         video_type_token = self.tokenizer.convert_tokens_to_ids("<video>")
         item["token_type_ids"] = torch.Tensor(
             [video_type_token] * len(sampled_ft)

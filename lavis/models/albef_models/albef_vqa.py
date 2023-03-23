@@ -311,7 +311,7 @@ class AlbefVQA(AlbefBase, MomentumDistilationMixin):
         # answer input: [num_question*k, answer_len]
         input_ids = []
         input_atts = []
-        for b, topk_id in enumerate(topk_ids):
+        for topk_id in topk_ids:
             input_ids.append(answer_ids.index_select(dim=0, index=topk_id))
             input_atts.append(answer_atts.index_select(dim=0, index=topk_id))
         input_ids = torch.cat(input_ids, dim=0)
@@ -341,9 +341,7 @@ class AlbefVQA(AlbefBase, MomentumDistilationMixin):
         max_topk_ids = log_probs_sum.argmax(dim=1)
         max_ids = topk_ids[max_topk_ids >= 0, max_topk_ids]
 
-        answers = [answer_list[max_id] for max_id in max_ids]
-
-        return answers
+        return [answer_list[max_id] for max_id in max_ids]
 
     @classmethod
     def from_config(cls, cfg=None):
@@ -389,11 +387,7 @@ class AlbefVQA(AlbefBase, MomentumDistilationMixin):
         else:
             raise RuntimeError("checkpoint url or path is invalid")
 
-        if "model" in checkpoint:
-            state_dict = checkpoint["model"]
-        else:
-            state_dict = checkpoint
-
+        state_dict = checkpoint["model"] if "model" in checkpoint else checkpoint
         # reshape positional embedding to accomodate for image resolution change
         pos_embed_reshaped = interpolate_pos_embed(
             state_dict["visual_encoder.pos_embed"], self.visual_encoder
@@ -431,12 +425,14 @@ class AlbefVQA(AlbefBase, MomentumDistilationMixin):
                 del state_dict[key]
 
         for key in self.state_dict().keys():
-            if key in state_dict.keys():
-                if state_dict[key].shape != self.state_dict()[key].shape:
-                    del state_dict[key]
+            if (
+                key in state_dict.keys()
+                and state_dict[key].shape != self.state_dict()[key].shape
+            ):
+                del state_dict[key]
 
         msg = self.load_state_dict(state_dict, strict=False)
-        logging.info("load checkpoint from %s" % url_or_filename)
+        logging.info(f"load checkpoint from {url_or_filename}")
         logging.info(f"missing keys: {msg.missing_keys}")
 
         return msg

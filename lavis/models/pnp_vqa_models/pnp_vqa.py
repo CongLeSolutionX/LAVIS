@@ -120,7 +120,7 @@ class PNPVQA(BaseModel):
 
         while min_num_captions < num_captions:
             encoder_out_samples = []
-            for i in range(num_captions):
+            for _ in range(num_captions):
                 patch_id = torch.multinomial(samples['gradcams'].to(self.image_captioning_model.device),
                                              num_patches).reshape(encoder_out.size(0), -1) + 1
                 patch_id = patch_id.sort(dim=1).values.unsqueeze(-1).expand(-1, -1, encoder_out.size(2))
@@ -162,10 +162,10 @@ class PNPVQA(BaseModel):
                 if len(captions[ind]) < num_captions:
                     caption = output[len(self.image_captioning_model.prompt):]
                     overlap_caption = [1 for caps in captions[ind] if caption in caps]
-                    if len(overlap_caption) == 0:
+                    if not overlap_caption:
                         captions[ind].append(caption)
 
-            min_num_captions = min([len(i) for i in captions])
+            min_num_captions = min(len(i) for i in captions)
 
         samples['captions'] = captions
 
@@ -275,9 +275,7 @@ class PNPVQA(BaseModel):
         """
         assert inference_method in [
             "generate",
-        ], "Inference method must be 'generate', got {}.".format(
-            inference_method
-        )
+        ], f"Inference method must be 'generate', got {inference_method}."
 
         if isinstance(samples["text_input"], str):
             samples["text_input"] = [samples["text_input"]]
@@ -331,10 +329,9 @@ class PNPVQA(BaseModel):
         image_captioning_model = cap_cls.from_config(cap_config)
         question_answering_model = qa_cls.from_config(qa_config)
 
-        model = cls(image_question_matching_model=image_question_matching_model,
-                    image_captioning_model=image_captioning_model,
-                    question_answering_model=question_answering_model,
-                    offload_model= True if model_config.model_type == '3b' else False,
-                    )
-
-        return model
+        return cls(
+            image_question_matching_model=image_question_matching_model,
+            image_captioning_model=image_captioning_model,
+            question_answering_model=question_answering_model,
+            offload_model=model_config.model_type == '3b',
+        )

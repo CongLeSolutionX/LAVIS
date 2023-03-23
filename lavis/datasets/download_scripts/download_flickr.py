@@ -33,7 +33,7 @@ def move_directory(src_dir, dst_dir):
     """
     Move files from download_path to storage_path
     """
-    print("Moving to {}".format(dst_dir))
+    print(f"Moving to {dst_dir}")
 
     os.makedirs(dst_dir, exist_ok=True)
 
@@ -62,7 +62,7 @@ if __name__ == "__main__":
     os.makedirs(download_dir)
 
     try:
-        print("Downloading {} to {}".format(DATA_URL, download_dir))
+        print(f"Downloading {DATA_URL} to {download_dir}")
         od.download(DATA_URL, download_dir)
     except Exception as e:
         print(e)

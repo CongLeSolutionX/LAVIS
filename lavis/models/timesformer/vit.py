@@ -507,8 +507,8 @@ class vit_base_patch16_224(nn.Module):
         self.num_patches = (cfg.DATA.TRAIN_CROP_SIZE // patch_size) * (
             cfg.DATA.TRAIN_CROP_SIZE // patch_size
         )
-        pretrained_model = cfg.TIMESFORMER.PRETRAINED_MODEL
         if self.pretrained:
+            pretrained_model = cfg.TIMESFORMER.PRETRAINED_MODEL
             load_pretrained(
                 self.model,
                 num_classes=self.model.num_classes,
@@ -583,7 +583,7 @@ class TimeSformer(nn.Module):
             self.model.remove_classifier()
 
         self.model.default_cfg = default_cfgs[
-            "vit_base_patch" + str(self.patch_size) + "_224"
+            f"vit_base_patch{str(self.patch_size)}_224"
         ]
         self.num_patches = (self.img_size // self.patch_size) * (
             self.img_size // self.patch_size
@@ -612,9 +612,7 @@ class TimeSformer(nn.Module):
         return x
 
     def load_state_dict(self, pretrained_ckpt_path):
-        logging.info(
-            "Loading TimeSformer checkpoints from {}".format(pretrained_ckpt_path)
-        )
+        logging.info(f"Loading TimeSformer checkpoints from {pretrained_ckpt_path}")
 
         if pretrained_ckpt_path == "vit_base_patch16_224":
             load_ckpt_func = load_pretrained_imagenet

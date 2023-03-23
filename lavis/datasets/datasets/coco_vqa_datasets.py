@@ -45,7 +45,7 @@ class COCOVQADataset(VQADataset, __DisplMixin):
 
         answer_weight = {}
         for answer in ann["answer"]:
-            if answer in answer_weight.keys():
+            if answer in answer_weight:
                 answer_weight[answer] += 1 / len(ann["answer"])
             else:
                 answer_weight[answer] = 1 / len(ann["answer"])

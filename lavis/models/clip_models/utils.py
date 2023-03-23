@@ -25,9 +25,7 @@ def freeze_batch_norm_2d(module, module_match={}, name=""):
     Inspired by https://github.com/pytorch/pytorch/blob/a5895f85be0f10212791145bfedc0261d364f103/torch/nn/modules/batchnorm.py#L762
     """
     res = module
-    is_match = True
-    if module_match:
-        is_match = name in module_match
+    is_match = name in module_match if module_match else True
     if is_match and isinstance(
         module, (nn.modules.batchnorm.BatchNorm2d, nn.modules.batchnorm.SyncBatchNorm)
     ):

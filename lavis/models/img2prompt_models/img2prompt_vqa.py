@@ -111,9 +111,7 @@ class Img2PromptVQA(BaseModel):
                 encoder_attention_mask=image_atts,
                 return_dict=True,
             )
-            itm_output = self.itm_head(output.last_hidden_state[:, 0, :])
-            return itm_output  # , mask, token_length
-
+            return self.itm_head(output.last_hidden_state[:, 0, :])
         elif match_head == "itc":
             encoder_input_ids[:, 0] = self.tokenizer.cls_token_id
             text_output = self.text_encoder(
@@ -127,8 +125,7 @@ class Img2PromptVQA(BaseModel):
                 self.text_proj(text_output.last_hidden_state[:, 0, :]), dim=-1
             )
 
-            sim = image_feat @ text_feat.t()
-            return sim
+            return image_feat @ text_feat.t()
 
     def forward_cap(
         self,
@@ -169,7 +166,7 @@ class Img2PromptVQA(BaseModel):
 
         while min_num_captions < num_captions:
             encoder_out_samples = []
-            for i in range(num_captions):
+            for _ in range(num_captions):
                 patch_id = (
                     torch.multinomial(
                         samples["gradcams"].to(self.image_captioning_model.device),
@@ -233,12 +230,10 @@ class Img2PromptVQA(BaseModel):
                     caption = output[len(self.image_captioning_model.prompt) :]
                     overlap_caption = [1 for caps in captions[ind] if caption in caps]
                     # print(itm_outputs)
-                    if (
-                        len(overlap_caption) == 0 and itm_outputs[counter] >= 0.5
-                    ):  # image filter
+                    if not overlap_caption and itm_outputs[counter] >= 0.5:  # image filter
                         captions[ind].append(caption)
 
-            min_num_captions = min([len(i) for i in captions])
+            min_num_captions = min(len(i) for i in captions)
 
         samples["captions"] = captions
 
@@ -260,32 +255,29 @@ class Img2PromptVQA(BaseModel):
                 if token.pos_ in open_pos:
                     if token.text.lower() not in ans_to_cap_dict:
                         ans_to_cap_dict[token.text.lower()] = [cap_idx]
-                    else:
-                        if cap_idx not in ans_to_cap_dict[token.text.lower()]:
-                            ans_to_cap_dict[token.text.lower()].append(cap_idx)
+                    elif cap_idx not in ans_to_cap_dict[token.text.lower()]:
+                        ans_to_cap_dict[token.text.lower()].append(cap_idx)
                     answers.append(token.text)
             for ent in cap.ents:
 
                 if ent.text not in answers:
                     if ent.text.lower() not in ans_to_cap_dict:
                         ans_to_cap_dict[ent.text.lower()] = [cap_idx]
-                    else:
-                        if cap_idx not in ans_to_cap_dict[ent.text.lower()]:
-                            ans_to_cap_dict[ent.text.lower()].append(cap_idx)
+                    elif cap_idx not in ans_to_cap_dict[ent.text.lower()]:
+                        ans_to_cap_dict[ent.text.lower()].append(cap_idx)
                     answers.append(ent.text)
             for chunk in cap.noun_chunks:
                 if len(chunk.text.split()) < 4:
                     if chunk.text.lower() not in ans_to_cap_dict:
                         ans_to_cap_dict[chunk.text.lower()] = [cap_idx]
-                    else:
-                        if cap_idx not in ans_to_cap_dict[chunk.text.lower()]:
-                            ans_to_cap_dict[chunk.text.lower()].append(cap_idx)
+                    elif cap_idx not in ans_to_cap_dict[chunk.text.lower()]:
+                        ans_to_cap_dict[chunk.text.lower()].append(cap_idx)
                     #                 print(chunk.text)
                     answers.append(chunk.text)
         answers = sorted(answers, key=answers.count, reverse=True)
         real_answers = []
         for i in answers:
-            i = i + "."
+            i = f"{i}."
             if i not in real_answers:
                 real_answers.append(i)
 
@@ -294,13 +286,9 @@ class Img2PromptVQA(BaseModel):
         for ans in real_answers[
             :num_question_generation
         ]:  # Generate questions for 30 answers with max frequencies.
-            contexts_for_question_generation.append(
-                "answer: %s  context: %s." % (ans, cap_use)
-            )
+            contexts_for_question_generation.append(f"answer: {ans}  context: {cap_use}.")
             answers.append(ans)
-        contexts_for_question_generation.append(
-            "answer: %s  context: %s." % ("yes.", cap_use)
-        )
+        contexts_for_question_generation.append(f"answer: yes.  context: {cap_use}.")
         answers.append("yes.")
         return contexts_for_question_generation, answers, ans_to_cap_dict
 
@@ -371,9 +359,7 @@ class Img2PromptVQA(BaseModel):
             #     qa_idx = random.randint(0, len(syn_question_queid) - 1)
             # else:
             qa_idx = idx
-            if (
-                question_type != "rule" and num_question_per_img > 0 and idx < 1
-            ):  ## yes and no questions for vqav2
+            if question_type != "rule" and num_question_per_img > 0 and qa_idx < 1:  ## yes and no questions for vqav2
                 # Task_Prompt += "Question:"
                 # Task_Prompt += syn_question_queid_next[-1]
                 # Task_Prompt += '\n'
@@ -444,17 +430,14 @@ class Img2PromptVQA(BaseModel):
             samples, question_type, num_question_per_img
         )
 
-        Img2Prompt = (
-            Prompt
-            + "Contexts:"
-            + Context_Prompt
+        return (
+            f"{Prompt}Contexts:{Context_Prompt}"
             + "\n"
             + Task_Prompt
             + "Question:"
             + samples["text_input"][0]
             + "\nAnswer:"
         )
-        return Img2Prompt
 
     def prepare_LLM_input(
         self,
@@ -502,7 +485,7 @@ class Img2PromptVQA(BaseModel):
         """
         assert inference_method in [
             "generate",
-        ], "Inference method must be 'generate', got {}.".format(inference_method)
+        ], f"Inference method must be 'generate', got {inference_method}."
 
         if isinstance(samples["text_input"], str):
             samples["text_input"] = [samples["text_input"]]
@@ -571,12 +554,10 @@ class Img2PromptVQA(BaseModel):
         checkpoint = torch.load(cached_file, map_location="cpu")
         state_dict = checkpoint["model"]
         question_generation_model.load_state_dict(state_dict)
-        model = cls(
+        return cls(
             image_question_matching_model=image_question_matching_model,
             image_captioning_model=image_captioning_model,
             question_generation_model=question_generation_model,
             question_generation_tokenizer=question_generation_tokenizer,
             offload_model=False,
         )
-
-        return model

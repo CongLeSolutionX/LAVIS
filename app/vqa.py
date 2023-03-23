@@ -27,11 +27,7 @@ def app():
     col1, col2 = st.columns(2)
 
     col1.header("Image")
-    if file:
-        raw_img = Image.open(file).convert("RGB")
-    else:
-        raw_img = load_demo_image()
-
+    raw_img = Image.open(file).convert("RGB") if file else load_demo_image()
     w, h = raw_img.size
     scaling_factor = 720 / w
     resized_image = raw_img.resize((int(w * scaling_factor), int(h * scaling_factor)))
@@ -48,16 +44,15 @@ def app():
     vis_processor = load_processor("blip_image_eval").build(image_size=480)
     text_processor = load_processor("blip_question").build()
 
-    if qa_button:
-        if model_type.startswith("BLIP"):
-            model = load_model_cache(
-                "blip_vqa", model_type="vqav2", is_eval=True, device=device
-            )
+    if qa_button and model_type.startswith("BLIP"):
+        model = load_model_cache(
+            "blip_vqa", model_type="vqav2", is_eval=True, device=device
+        )
 
-            img = vis_processor(raw_img).unsqueeze(0).to(device)
-            question = text_processor(user_question)
+        img = vis_processor(raw_img).unsqueeze(0).to(device)
+        question = text_processor(user_question)
 
-            vqa_samples = {"image": img, "text_input": [question]}
-            answers = model.predict_answers(vqa_samples, inference_method="generate")
+        vqa_samples = {"image": img, "text_input": [question]}
+        answers = model.predict_answers(vqa_samples, inference_method="generate")
 
-            col2.write("\n".join(answers), use_column_width=True)
+        col2.write("\n".join(answers), use_column_width=True)

@@ -41,8 +41,8 @@ class VQATask(BaseTask):
 
         self.answer_list = None
 
-        self.ques_files = dict()
-        self.anno_files = dict()
+        self.ques_files = {}
+        self.anno_files = {}
 
     @classmethod
     def setup_task(cls, cfg):
@@ -122,9 +122,7 @@ class VQATask(BaseTask):
             remove_duplicate="question_id",
         )
 
-        metrics = self._report_metrics(result_file=result_file, split=split_name)
-
-        return metrics
+        return self._report_metrics(result_file=result_file, split=split_name)
 
     @dist_utils.main_process
     def _report_metrics(self, result_file, split):
@@ -243,17 +241,15 @@ class AOKVQATask(VQATask):
             num_ans_candidates=self.num_ans_candidates,
         )
 
-        pred_qa_pairs = []
-
         question_id = samples["question_id"]
         gt_answers = samples["direct_answers"]
 
-        for pred_answer, ques_id, gt_answer in zip(answers, question_id, gt_answers):
-            pred_qa_pairs.append(
-                {"question_id": ques_id, "pred_ans": pred_answer, "gt_ans": gt_answer}
+        return [
+            {"question_id": ques_id, "pred_ans": pred_answer, "gt_ans": gt_answer}
+            for pred_answer, ques_id, gt_answer in zip(
+                answers, question_id, gt_answers
             )
-
-        return pred_qa_pairs
+        ]
 
     @dist_utils.main_process
     def _report_metrics(self, result_file, split):
@@ -275,7 +271,7 @@ class AOKVQATask(VQATask):
             pred = res["pred_ans"]
             gt_ans = res["gt_ans"]
 
-            num_match = sum([pred == gt for gt in gt_ans])
+            num_match = sum(pred == gt for gt in gt_ans)
             vqa_acc = min(1.0, num_match / 3.0)
 
             acc.append(vqa_acc)
@@ -299,13 +295,13 @@ class AOKVQATask(VQATask):
 
         [TODO] add support for multi-choice.
         """
-        result_leaderboard = dict()
-        for res in results:
-            result_leaderboard[res["question_id"]] = {
+        result_leaderboard = {
+            res["question_id"]: {
                 "direct_answer": res["pred_ans"],
                 "multiple_choice": "",
             }
-
+            for res in results
+        }
         result_file = registry.get_path("result_dir") + "_leaderboard.json"
 
         with open(result_file, "w") as f:

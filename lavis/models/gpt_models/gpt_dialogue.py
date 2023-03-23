@@ -89,11 +89,7 @@ class GPTDialogue(BaseModel, GPT2LMHeadModel):
             loss_fct = MSELoss(reduction="mean")
             video_loss = loss_fct(shift_logits, shift_labels)
 
-            if loss is not None:
-                loss = loss + video_loss
-            else:
-                loss = video_loss
-
+            loss = loss + video_loss if loss is not None else video_loss
         return CausalLMOutputWithCrossAttentions(
             loss=loss,
             logits=lm_logits,

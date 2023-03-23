@@ -389,7 +389,7 @@ class AlproRetrieval(AlproBase):
 
         total_time = time.time() - start_time
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-        logging.info("Evaluation time {}".format(total_time_str))
+        logging.info(f"Evaluation time {total_time_str}")
 
         return score_matrix_v2t.cpu().numpy(), score_matrix_t2v.cpu().numpy()
 

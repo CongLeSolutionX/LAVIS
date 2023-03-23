@@ -17,8 +17,7 @@ def load_demo_image():
     img_url = (
         "https://storage.googleapis.com/sfr-vision-language-research/BLIP/demo.jpg"
     )
-    raw_image = Image.open(requests.get(img_url, stream=True).raw).convert("RGB")
-    return raw_image
+    return Image.open(requests.get(img_url, stream=True).raw).convert("RGB")
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

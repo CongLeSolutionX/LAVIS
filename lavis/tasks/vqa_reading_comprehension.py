@@ -91,7 +91,7 @@ class VQARCTask(VQATask):
         return [sample_gradcams, sample_captions, pred_qa_pairs]
 
     def after_evaluation(self, val_result, split_name, **kwargs):
-        result_ = list(chain(*val_result[0::3]))
+        result_ = list(chain(*val_result[::3]))
         result_file = self.save_gradcam(
             result_,
             result_dir=registry.get_path("result_dir"),
@@ -115,13 +115,11 @@ class VQARCTask(VQATask):
             remove_duplicate="question_id",
         )
 
-        metrics = self._report_metrics(result_file=result_file, split=split_name)
-
-        return metrics
+        return self._report_metrics(result_file=result_file, split=split_name)
 
     def save_gradcam(self, result, result_dir, filename, remove_duplicate=""):
         result_file = os.path.join(result_dir, '%s_rank%d.pth' % (filename, get_rank()))
-        final_result_file = os.path.join(result_dir, '%s.pth' % filename)
+        final_result_file = os.path.join(result_dir, f'{filename}.pth')
         torch.save({'result': result}, result_file)
 
         dist.barrier()
@@ -148,7 +146,7 @@ class VQARCTask(VQATask):
                 result = result_new
 
             torch.save({'result': result}, final_result_file)
-            print("result file saved to %s" % final_result_file)
+            print(f"result file saved to {final_result_file}")
 
         return final_result_file
 
@@ -233,13 +231,13 @@ class GQARCTask(VQARCTask):
         """
         Saving the results in the format required for leaderboard evaluation.
         """
-        result_leaderboard = []
-        for res in results:
-            result_leaderboard.append({
+        result_leaderboard = [
+            {
                 "questionId": str(res['question_id']),
                 "prediction": str(res["pred_ans"]),
-            })
-
+            }
+            for res in results
+        ]
         result_file = registry.get_path("result_dir") + "_leaderboard.json"
 
         with open(result_file, "w") as f:

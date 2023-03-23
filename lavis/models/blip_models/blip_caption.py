@@ -51,8 +51,7 @@ class BlipCaption(BlipBase):
         self.max_txt_len = max_txt_len
 
     def forward_encoder(self, samples):
-        image_embeds = self.visual_encoder.forward_features(samples["image"])
-        return image_embeds
+        return self.visual_encoder.forward_features(samples["image"])
 
     def forward_decoder(self, samples, image_embeds):
         # prepare inputs for forwarding decoder
@@ -199,9 +198,7 @@ class BlipCaption(BlipBase):
         )
 
         outputs = self.tokenizer.batch_decode(decoder_out, skip_special_tokens=True)
-        captions = [output[len(self.prompt) :] for output in outputs]
-
-        return captions
+        return [output[len(self.prompt) :] for output in outputs]
 
     @classmethod
     def from_config(cls, cfg):

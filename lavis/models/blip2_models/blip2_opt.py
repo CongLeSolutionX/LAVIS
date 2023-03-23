@@ -198,11 +198,7 @@ class Blip2OPT(Blip2Base):
                 image.device
             )
 
-            if "prompt" in samples.keys():
-                prompt = samples["prompt"]
-            else:
-                prompt = self.prompt
-
+            prompt = samples["prompt"] if "prompt" in samples.keys() else self.prompt
             prompt = [prompt] * image.size(0)
 
             opt_tokens = self.opt_tokenizer(prompt, return_tensors="pt").to(

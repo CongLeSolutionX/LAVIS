@@ -86,9 +86,11 @@ class TestPNPVQA:
         image = vis_processors["eval"](raw_image).unsqueeze(0).to(device)
         question = txt_processors["eval"](question)
 
-        samples = {"image": image, "text_input": [question]}
-
-        samples['gradcams'] = torch.rand(1,576)
+        samples = {
+            "image": image,
+            "text_input": [question],
+            'gradcams': torch.rand(1, 576),
+        }
 
         samples = model.forward_cap(samples=samples, num_captions=5, num_patches=20)
 
@@ -108,9 +110,13 @@ class TestPNPVQA:
         image = vis_processors["eval"](raw_image).unsqueeze(0).to(device)
         question = txt_processors["eval"](question)
 
-        samples = {"image": image, "text_input": [question]}
-
-        samples['captions'] = [['the city is singapore', 'the picture is taken in singapore']]
+        samples = {
+            "image": image,
+            "text_input": [question],
+            'captions': [
+                ['the city is singapore', 'the picture is taken in singapore']
+            ],
+        }
 
         answer = model.forward_qa(samples=samples, num_captions=2)
 

@@ -58,11 +58,9 @@ class DialogueTask(BaseTask):
 
         if self.report_metric:
             avg_loss = np.mean(val_result)
-            metrics = {"agg_metrics": avg_loss}
+            return {"agg_metrics": avg_loss}
         else:
-            metrics = {"agg_metrics": 0.0}
-
-        return metrics
+            return {"agg_metrics": 0.0}
 
     @main_process
     def _report_metrics(self, eval_result_file, split_name):
@@ -71,14 +69,14 @@ class DialogueTask(BaseTask):
         coco_val = coco_dialogue_eval(coco_gt_root, eval_result_file, split_name)
 
         agg_metrics = coco_val.eval["CIDEr"] + coco_val.eval["Bleu_4"]
-        log_stats = {split_name: {k: v for k, v in coco_val.eval.items()}}
+        log_stats = {split_name: dict(coco_val.eval.items())}
 
         with open(
             os.path.join(registry.get_path("output_dir"), "evaluate.txt"), "a"
         ) as f:
             f.write(json.dumps(log_stats) + "\n")
 
-        coco_res = {k: v for k, v in coco_val.eval.items()}
+        coco_res = dict(coco_val.eval.items())
         coco_res["agg_metrics"] = agg_metrics
 
         return coco_res

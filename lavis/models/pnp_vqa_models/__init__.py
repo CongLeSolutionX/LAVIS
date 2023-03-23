@@ -15,8 +15,8 @@ def prepare_qa_input(sample, num_captions, num_captions_fid):
         assert isinstance(captions, list)
         question_captions = []
         question_caption = ''
-        for cap_id, cap_ in enumerate(captions[0:num_captions]):
-            question_caption += (cap_.strip() + '. ')
+        for cap_id, cap_ in enumerate(captions[:num_captions]):
+            question_caption += f'{cap_.strip()}. '
             if (cap_id + 1) != num_captions and ((cap_id + 1) % num_captions_fid == 0):
                 question_caption = question.lower().strip() + " \\n " + question_caption.lower().strip()
                 question_captions.append(question_caption)

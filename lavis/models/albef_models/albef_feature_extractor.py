@@ -112,7 +112,7 @@ class AlbefFeatureExtractor(AlbefBase):
                 "multimodal",
                 "image",
                 "text",
-            ], "mode must be one of [multimodal, image, text], but got {}".format(m)
+            ], f"mode must be one of [multimodal, image, text], but got {m}"
 
         # initalize output
         image_embeds, text_embeds, multimodal_embeds = None, None, None

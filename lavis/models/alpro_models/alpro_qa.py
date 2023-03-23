@@ -107,8 +107,7 @@ class AlproQA(AlproBase):
             return {"predictions": prediction, "targets": targets}
 
     def predict(self, samples):
-        output = self.forward(samples, is_train=False)
-        return output
+        return self.forward(samples, is_train=False)
 
     @classmethod
     def from_config(cls, cfg):

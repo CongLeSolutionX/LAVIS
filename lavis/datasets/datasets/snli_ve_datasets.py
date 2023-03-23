@@ -41,7 +41,7 @@ class SNLIVisualEntialmentDataset(MultimodalClassificationDataset, __DisplMixin)
         ann = self.annotation[index]
 
         image_id = ann["image"]
-        image_path = os.path.join(self.vis_root, "%s.jpg" % image_id)
+        image_path = os.path.join(self.vis_root, f"{image_id}.jpg")
         image = Image.open(image_path).convert("RGB")
 
         image = self.vis_processor(image)

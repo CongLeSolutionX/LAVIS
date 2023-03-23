@@ -100,55 +100,53 @@ class AlbefClassification(AlbefBase, MomentumDistilationMixin):
 
         prediction = self.cls_head(encoder_output.last_hidden_state[:, 0, :])
 
-        if is_train:
-            if self.use_distill:
-                with torch.no_grad():
-                    self._momentum_update()
+        if not is_train:
+            return {"predictions": prediction, "targets": targets}
+        if self.use_distill:
+            with torch.no_grad():
+                self._momentum_update()
 
-                    image_embeds_m = self.visual_encoder_m(samples["image"])
-                    encoder_output_m = self.text_encoder_m.forward_automask(
-                        samples["tokenized_text"], image_embeds_m
-                    )
-
-                    prediction_m = self.cls_head_m(
-                        encoder_output_m.last_hidden_state[:, 0, :]
-                    )
-
-                alpha = self.alpha * self._rampup_factor(
-                    epoch=samples["epoch"],
-                    iters=samples["iters"],
-                    num_iters_per_epoch=samples["num_iters_per_epoch"],
+                image_embeds_m = self.visual_encoder_m(samples["image"])
+                encoder_output_m = self.text_encoder_m.forward_automask(
+                    samples["tokenized_text"], image_embeds_m
                 )
 
-                loss = (1 - alpha) * F.cross_entropy(
-                    prediction, targets
-                ) - alpha * torch.sum(
-                    F.log_softmax(prediction, dim=1) * F.softmax(prediction_m, dim=1),
-                    dim=1,
-                ).mean()
-            else:
-                loss = F.cross_entropy(prediction, targets)
+                prediction_m = self.cls_head_m(
+                    encoder_output_m.last_hidden_state[:, 0, :]
+                )
 
-                image_embeds_m, encoder_output_m, prediction_m = None, None, None
-
-            # return {"loss": loss}
-            return AlbefOutputWithLogits(
-                loss=loss,
-                intermediate_output=AlbefIntermediateOutput(
-                    image_embeds=image_embeds,
-                    image_embeds_m=image_embeds_m,
-                    encoder_output=encoder_output,
-                    encoder_output_m=encoder_output_m,
-                ),
-                logits=prediction,
-                logits_m=prediction_m,
+            alpha = self.alpha * self._rampup_factor(
+                epoch=samples["epoch"],
+                iters=samples["iters"],
+                num_iters_per_epoch=samples["num_iters_per_epoch"],
             )
+
+            loss = (1 - alpha) * F.cross_entropy(
+                prediction, targets
+            ) - alpha * torch.sum(
+                F.log_softmax(prediction, dim=1) * F.softmax(prediction_m, dim=1),
+                dim=1,
+            ).mean()
         else:
-            return {"predictions": prediction, "targets": targets}
+            loss = F.cross_entropy(prediction, targets)
+
+            image_embeds_m, encoder_output_m, prediction_m = None, None, None
+
+        # return {"loss": loss}
+        return AlbefOutputWithLogits(
+            loss=loss,
+            intermediate_output=AlbefIntermediateOutput(
+                image_embeds=image_embeds,
+                image_embeds_m=image_embeds_m,
+                encoder_output=encoder_output,
+                encoder_output_m=encoder_output_m,
+            ),
+            logits=prediction,
+            logits_m=prediction_m,
+        )
 
     def predict(self, samples):
-        output = self.forward(samples, is_train=False)
-        return output
+        return self.forward(samples, is_train=False)
 
     @classmethod
     def from_config(cls, cfg=None):
@@ -163,9 +161,9 @@ class AlbefClassification(AlbefBase, MomentumDistilationMixin):
         num_classes = cfg.get("num_classes", -1)
         max_txt_len = cfg.get("max_txt_len", 40)
 
-        assert num_classes > 1, "Invalid number of classes provided, found {}".format(
-            num_classes
-        )
+        assert (
+            num_classes > 1
+        ), f"Invalid number of classes provided, found {num_classes}"
 
         model = cls(
             image_encoder=image_encoder,

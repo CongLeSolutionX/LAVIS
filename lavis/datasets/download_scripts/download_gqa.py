@@ -41,7 +41,7 @@ if __name__ == "__main__":
         exit(0)
 
     try:
-        print("Downloading {}".format(DATA_URL))
+        print(f"Downloading {DATA_URL}")
         download_datasets(download_dir, DATA_URL)
     except Exception as e:
         # remove download dir if failed

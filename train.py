@@ -44,11 +44,7 @@ def parse_args():
         "change to --cfg-options instead.",
     )
 
-    args = parser.parse_args()
-    # if 'LOCAL_RANK' not in os.environ:
-    #     os.environ['LOCAL_RANK'] = str(args.local_rank)
-
-    return args
+    return parser.parse_args()
 
 
 def setup_seeds(config):
@@ -66,9 +62,7 @@ def get_runner_class(cfg):
     """
     Get runner class from config. Default to epoch-based runner.
     """
-    runner_cls = registry.get_runner_class(cfg.run_cfg.get("runner", "runner_base"))
-
-    return runner_cls
+    return registry.get_runner_class(cfg.run_cfg.get("runner", "runner_base"))
 
 
 def main():

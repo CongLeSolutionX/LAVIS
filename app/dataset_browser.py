@@ -24,9 +24,7 @@ NEXT_STR = "Next"
 
 
 def sample_dataset(dataset, indices):
-    samples = [dataset.displ_item(idx) for idx in indices]
-
-    return samples
+    return [dataset.displ_item(idx) for idx in indices]
 
 
 def get_concat_v(im1, im2):
@@ -44,21 +42,17 @@ def resize_img_w(raw_img, new_w=224):
     if isinstance(raw_img, list):
         resized_imgs = [resize_img_w(img, 196) for img in raw_img]
         # concatenate images
-        resized_image = reduce(get_concat_v, resized_imgs)
+        return reduce(get_concat_v, resized_imgs)
     else:
         w, h = raw_img.size
         scaling_factor = new_w / w
-        resized_image = raw_img.resize(
+        return raw_img.resize(
             (int(w * scaling_factor), int(h * scaling_factor))
         )
 
-    return resized_image
-
 
 def get_visual_key(dataset):
-    if "image" in dataset[0]:
-        return "image"
-    elif "image0" in dataset[0]:  # NLVR2 dataset
+    if "image" in dataset[0] or "image0" in dataset[0]:
         return "image"
     elif "video" in dataset[0]:
         return "video"
@@ -86,9 +80,7 @@ def load_dataset_cache(name):
 
 
 def format_text(text):
-    md = "\n\n".join([f"**{k}**: {v}" for k, v in text.items()])
-
-    return md
+    return "\n\n".join([f"**{k}**: {v}" for k, v in text.items()])
 
 
 def show_samples(dataset, offset=0, is_next=False):
@@ -211,10 +203,9 @@ if __name__ == "__main__":
 
             if not start_idx.isdigit():
                 st.error(f"Input to 'Begin from' must be digits, found {start_idx}.")
-            else:
-                if int(start_idx) != st.session_state.start_idx:
-                    st.session_state.start_idx = int(start_idx)
-                    st.session_state.last_start = int(start_idx)
+            elif int(start_idx) != st.session_state.start_idx:
+                st.session_state.start_idx = int(start_idx)
+                st.session_state.last_start = int(start_idx)
 
             if prev_button:
                 show_samples(

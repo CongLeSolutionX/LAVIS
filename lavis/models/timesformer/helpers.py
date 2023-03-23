@@ -25,9 +25,12 @@ def load_state_dict(checkpoint_path, use_ema=False):
     if checkpoint_path and os.path.isfile(checkpoint_path):
         checkpoint = torch.load(checkpoint_path, map_location="cpu")
         state_dict_key = "state_dict"
-        if isinstance(checkpoint, dict):
-            if use_ema and "state_dict_ema" in checkpoint:
-                state_dict_key = "state_dict_ema"
+        if (
+            isinstance(checkpoint, dict)
+            and use_ema
+            and "state_dict_ema" in checkpoint
+        ):
+            state_dict_key = "state_dict_ema"
         if state_dict_key and state_dict_key in checkpoint:
             new_state_dict = OrderedDict()
             for k, v in checkpoint[state_dict_key].items():
@@ -45,12 +48,10 @@ def load_state_dict(checkpoint_path, use_ema=False):
             state_dict = new_state_dict
         else:
             state_dict = checkpoint
-        logging.info(
-            "Loaded {} from checkpoint '{}'".format(state_dict_key, checkpoint_path)
-        )
+        logging.info(f"Loaded {state_dict_key} from checkpoint '{checkpoint_path}'")
         return state_dict
     else:
-        logging.error("No checkpoint found at '{}'".format(checkpoint_path))
+        logging.error(f"No checkpoint found at '{checkpoint_path}'")
         raise FileNotFoundError()
 
 
@@ -119,8 +120,6 @@ def load_pretrained(
         return
 
     if len(pretrained_model) == 0:
-        if cfg is None:
-            logging.info(f"loading from default config {model.default_cfg}.")
         state_dict = model_zoo.load_url(cfg["url"], progress=False, map_location="cpu")
     else:
         try:
@@ -134,10 +133,9 @@ def load_pretrained(
     if in_chans == 1:
         conv1_name = cfg["first_conv"]
         logging.info(
-            "Converting first conv (%s) pretrained weights from 3 to 1 channel"
-            % conv1_name
+            f"Converting first conv ({conv1_name}) pretrained weights from 3 to 1 channel"
         )
-        conv1_weight = state_dict[conv1_name + ".weight"]
+        conv1_weight = state_dict[f"{conv1_name}.weight"]
         conv1_type = conv1_weight.dtype
         conv1_weight = conv1_weight.float()
         O, I, J, K = conv1_weight.shape
@@ -149,41 +147,37 @@ def load_pretrained(
         else:
             conv1_weight = conv1_weight.sum(dim=1, keepdim=True)
         conv1_weight = conv1_weight.to(conv1_type)
-        state_dict[conv1_name + ".weight"] = conv1_weight
+        state_dict[f"{conv1_name}.weight"] = conv1_weight
     elif in_chans != 3:
         conv1_name = cfg["first_conv"]
-        conv1_weight = state_dict[conv1_name + ".weight"]
+        conv1_weight = state_dict[f"{conv1_name}.weight"]
         conv1_type = conv1_weight.dtype
         conv1_weight = conv1_weight.float()
         O, I, J, K = conv1_weight.shape
         if I != 3:
-            logging.warning(
-                "Deleting first conv (%s) from pretrained weights." % conv1_name
-            )
-            del state_dict[conv1_name + ".weight"]
+            logging.warning(f"Deleting first conv ({conv1_name}) from pretrained weights.")
+            del state_dict[f"{conv1_name}.weight"]
             strict = False
         else:
-            logging.info(
-                "Repeating first conv (%s) weights in channel dim." % conv1_name
-            )
+            logging.info(f"Repeating first conv ({conv1_name}) weights in channel dim.")
             repeat = int(math.ceil(in_chans / 3))
             conv1_weight = conv1_weight.repeat(1, repeat, 1, 1)[:, :in_chans, :, :]
             conv1_weight *= 3 / float(in_chans)
             conv1_weight = conv1_weight.to(conv1_type)
-            state_dict[conv1_name + ".weight"] = conv1_weight
+            state_dict[f"{conv1_name}.weight"] = conv1_weight
 
     classifier_name = cfg["classifier"]
     if num_classes == 1000 and cfg["num_classes"] == 1001:
         # special case for imagenet trained models with extra background class in pretrained weights
-        classifier_weight = state_dict[classifier_name + ".weight"]
-        state_dict[classifier_name + ".weight"] = classifier_weight[1:]
-        classifier_bias = state_dict[classifier_name + ".bias"]
-        state_dict[classifier_name + ".bias"] = classifier_bias[1:]
-    elif num_classes != state_dict[classifier_name + ".weight"].size(0):
+        classifier_weight = state_dict[f"{classifier_name}.weight"]
+        state_dict[f"{classifier_name}.weight"] = classifier_weight[1:]
+        classifier_bias = state_dict[f"{classifier_name}.bias"]
+        state_dict[f"{classifier_name}.bias"] = classifier_bias[1:]
+    elif num_classes != state_dict[f"{classifier_name}.weight"].size(0):
         # print('Removing the last fully connected layer due to dimensions mismatch ('+str(num_classes)+ ' != '+str(state_dict[classifier_name + '.weight'].size(0))+').', flush=True)
         # completely discard fully connected for all other differences between pretrained and created model
-        del state_dict[classifier_name + ".weight"]
-        del state_dict[classifier_name + ".bias"]
+        del state_dict[f"{classifier_name}.weight"]
+        del state_dict[f"{classifier_name}.bias"]
         strict = False
 
     ## Resizing the positional embeddings in case they don't match
@@ -216,16 +210,18 @@ def load_pretrained(
         for key in state_dict:
             if "blocks" in key and "attn" in key:
                 new_key = key.replace("attn", "temporal_attn")
-                if not new_key in state_dict:
-                    new_state_dict[new_key] = state_dict[key]
-                else:
-                    new_state_dict[new_key] = state_dict[new_key]
+                new_state_dict[new_key] = (
+                    state_dict[new_key]
+                    if new_key in state_dict
+                    else state_dict[key]
+                )
             if "blocks" in key and "norm1" in key:
                 new_key = key.replace("norm1", "temporal_norm1")
-                if not new_key in state_dict:
-                    new_state_dict[new_key] = state_dict[key]
-                else:
-                    new_state_dict[new_key] = state_dict[new_key]
+                new_state_dict[new_key] = (
+                    state_dict[new_key]
+                    if new_key in state_dict
+                    else state_dict[key]
+                )
         state_dict = new_state_dict
 
     ## Loading the weights
@@ -243,7 +239,7 @@ def load_pretrained_imagenet(
 ):
     import timm
 
-    logging.info(f"Loading vit_base_patch16_224 checkpoints.")
+    logging.info("Loading vit_base_patch16_224 checkpoints.")
     loaded_state_dict = timm.models.vision_transformer.vit_base_patch16_224(
         pretrained=True
     ).state_dict()
@@ -256,17 +252,18 @@ def load_pretrained_imagenet(
     for key in loaded_state_dict:
         if "blocks" in key and "attn" in key:
             new_key = key.replace("attn", "temporal_attn")
-            if not new_key in loaded_state_dict:
-                new_state_dict[new_key] = loaded_state_dict[key]
-            else:
-                new_state_dict[new_key] = loaded_state_dict[new_key]
+            new_state_dict[new_key] = (
+                loaded_state_dict[new_key]
+                if new_key in loaded_state_dict
+                else loaded_state_dict[key]
+            )
         if "blocks" in key and "norm1" in key:
             new_key = key.replace("norm1", "temporal_norm1")
-            if not new_key in loaded_state_dict:
-                new_state_dict[new_key] = loaded_state_dict[key]
-            else:
-                new_state_dict[new_key] = loaded_state_dict[new_key]
-
+            new_state_dict[new_key] = (
+                loaded_state_dict[new_key]
+                if new_key in loaded_state_dict
+                else loaded_state_dict[key]
+            )
     loaded_state_dict = new_state_dict
 
     loaded_keys = loaded_state_dict.keys()
@@ -275,7 +272,7 @@ def load_pretrained_imagenet(
     load_not_in_model = [k for k in loaded_keys if k not in model_keys]
     model_not_in_load = [k for k in model_keys if k not in loaded_keys]
 
-    toload = dict()
+    toload = {}
     mismatched_shape_keys = []
     for k in model_keys:
         if k in loaded_keys:
@@ -317,11 +314,11 @@ def load_pretrained_kinetics(
 
     state_dict = load_state_dict(pretrained_model)
 
-    classifier_name = cfg["classifier"]
     if ignore_classifier:
 
-        classifier_weight_key = classifier_name + ".weight"
-        classifier_bias_key = classifier_name + ".bias"
+        classifier_name = cfg["classifier"]
+        classifier_weight_key = f"{classifier_name}.weight"
+        classifier_bias_key = f"{classifier_name}.bias"
 
         state_dict[classifier_weight_key] = model.state_dict()[classifier_weight_key]
         state_dict[classifier_bias_key] = model.state_dict()[classifier_bias_key]
@@ -379,18 +376,17 @@ def resize_temporal_embedding(state_dict, key, num_frames):
 
 
 def detach_variable(inputs):
-    if isinstance(inputs, tuple):
-        out = []
-        for inp in inputs:
-            x = inp.detach()
-            x.requires_grad = inp.requires_grad
-            out.append(x)
-        return tuple(out)
-    else:
+    if not isinstance(inputs, tuple):
         raise RuntimeError(
             "Only tuple of tensors is supported. Got Unsupported input type: ",
             type(inputs).__name__,
         )
+    out = []
+    for inp in inputs:
+        x = inp.detach()
+        x.requires_grad = inp.requires_grad
+        out.append(x)
+    return tuple(out)
 
 
 def check_backward_validity(inputs):
