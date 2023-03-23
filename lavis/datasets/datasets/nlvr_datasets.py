@@ -45,17 +45,13 @@ class NLVRDataset(MultimodalClassificationDataset, __DisplMixin):
         sentence = samples["text_input"]
         image0, image1 = samples["image0"], samples["image1"]
 
-        if "left" not in sentence and "right" not in sentence:
-            if random.random() < 0.5:
-                image0, image1 = image1, image0
-        else:
-            if random.random() < 0.5:
+        if random.random() < 0.5:
+            if "left" in sentence or "right" in sentence:
                 sentence = sentence.replace("left", "[TEMP_TOKEN]")
                 sentence = sentence.replace("right", "left")
                 sentence = sentence.replace("[TEMP_TOKEN]", "right")
 
-                image0, image1 = image1, image0
-
+            image0, image1 = image1, image0
         samples["text_input"] = sentence
         samples["image0"] = image0
         samples["image1"] = image1

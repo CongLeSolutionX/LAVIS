@@ -29,7 +29,7 @@ class ImageNetBuilder(BaseDatasetBuilder):
 
         vis_info = build_info.get(self.data_type)
 
-        datasets = dict()
+        datasets = {}
         for split in build_info.splits:
             assert split in [
                 "train",

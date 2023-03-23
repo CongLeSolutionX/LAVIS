@@ -56,7 +56,7 @@ class TimmModel(nn.Module):
         self.image_size = to_2tuple(image_size)
         self.trunk = timm.create_model(model_name, pretrained=pretrained)
         feat_size = self.trunk.default_cfg.get("pool_size", None)
-        feature_ndim = 1 if not feat_size else 2
+        feature_ndim = 2 if feat_size else 1
         if pool in ("abs_attn", "rot_attn"):
             assert feature_ndim == 2
             # if attn pooling used, remove both classifier and default pool
@@ -270,11 +270,13 @@ def inv_freq_bands(
     dtype: torch.dtype = torch.float32,
     device: Optional[torch.device] = None,
 ) -> torch.Tensor:
-    inv_freq = 1.0 / (
+    return 1.0 / (
         temperature
-        ** (torch.arange(0, num_bands, step, dtype=dtype, device=device) / num_bands)
+        ** (
+            torch.arange(0, num_bands, step, dtype=dtype, device=device)
+            / num_bands
+        )
     )
-    return inv_freq
 
 
 def build_sincos2d_pos_embed(
@@ -322,8 +324,9 @@ def build_sincos2d_pos_embed(
     stack_dim = (
         2 if interleave_sin_cos else 1
     )  # stack sin, cos, sin, cos  instead of sin sin cos cos
-    pos_emb = torch.stack([torch.sin(pos2), torch.cos(pos2)], dim=stack_dim).flatten(1)
-    return pos_emb
+    return torch.stack(
+        [torch.sin(pos2), torch.cos(pos2)], dim=stack_dim
+    ).flatten(1)
 
 
 def build_fourier_pos_embed(

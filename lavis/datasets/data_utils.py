@@ -43,10 +43,7 @@ def load_video(video_path, n_frms=MAX_INT, height=-1, width=-1, sampling="unifor
     else:
         raise NotImplementedError
 
-    # get_batch -> T, H, W, C
-    frms = vr.get_batch(indices).permute(3, 0, 1, 2).float()  # (C, T, H, W)
-
-    return frms
+    return vr.get_batch(indices).permute(3, 0, 1, 2).float()
 
 
 def apply_to_sample(f, sample):
@@ -95,7 +92,7 @@ def reorg_datasets_by_split(datasets):
     # if len(datasets) == 1:
     #     return datasets[list(datasets.keys())[0]]
     # else:
-    reorg_datasets = dict()
+    reorg_datasets = {}
 
     # reorganize by split
     for _, dataset in datasets.items():
@@ -136,17 +133,13 @@ def concat_datasets(datasets):
         if split_name != "train":
             assert (
                 len(datasets[split_name]) == 1
-            ), "Do not support multiple {} datasets.".format(split_name)
+            ), f"Do not support multiple {split_name} datasets."
             datasets[split_name] = datasets[split_name][0]
         else:
             iterable_datasets, map_datasets = [], []
             for dataset in datasets[split_name]:
                 if isinstance(dataset, wds.DataPipeline):
-                    logging.info(
-                        "Dataset {} is IterableDataset, can't be concatenated.".format(
-                            dataset
-                        )
-                    )
+                    logging.info(f"Dataset {dataset} is IterableDataset, can't be concatenated.")
                     iterable_datasets.append(dataset)
                 elif isinstance(dataset, IterableDataset):
                     raise NotImplementedError(
@@ -158,14 +151,12 @@ def concat_datasets(datasets):
             # if len(iterable_datasets) > 0:
             # concatenate map-style datasets and iterable-style datasets separately
             chained_datasets = (
-                ChainDataset(iterable_datasets) if len(iterable_datasets) > 0 else None
+                ChainDataset(iterable_datasets) if iterable_datasets else None
             )
-            concat_datasets = (
-                ConcatDataset(map_datasets) if len(map_datasets) > 0 else None
-            )
+            concat_datasets = ConcatDataset(map_datasets) if map_datasets else None
 
             train_datasets = concat_datasets, chained_datasets
-            train_datasets = tuple([x for x in train_datasets if x is not None])
+            train_datasets = tuple(x for x in train_datasets if x is not None)
             train_datasets = (
                 train_datasets[0] if len(train_datasets) == 1 else train_datasets
             )
@@ -203,7 +194,7 @@ def extract_archive(from_path, to_path=None, overwrite=False):
         to_path = os.path.dirname(from_path)
 
     if from_path.endswith((".tar.gz", ".tgz")):
-        logging.info("Opening tar file {} to {}.".format(from_path, to_path))
+        logging.info(f"Opening tar file {from_path} to {to_path}.")
         with tarfile.open(from_path, "r") as tar:
             files = []
             for file_ in tqdm(tar):
@@ -211,32 +202,32 @@ def extract_archive(from_path, to_path=None, overwrite=False):
                 if file_.isfile():
                     files.append(file_path)
                     if os.path.exists(file_path):
-                        logging.info("{} already extracted.".format(file_path))
+                        logging.info(f"{file_path} already extracted.")
                         if not overwrite:
                             continue
                 tar.extract(file_, to_path)
-            logging.info("Finished extracting tar file {}.".format(from_path))
+            logging.info(f"Finished extracting tar file {from_path}.")
             return files
 
     elif from_path.endswith(".zip"):
         assert zipfile.is_zipfile(from_path), from_path
-        logging.info("Opening zip file {} to {}.".format(from_path, to_path))
+        logging.info(f"Opening zip file {from_path} to {to_path}.")
         with zipfile.ZipFile(from_path, "r") as zfile:
             files = []
             for file_ in tqdm(zfile.namelist()):
                 file_path = os.path.join(to_path, file_)
                 files.append(file_path)
                 if os.path.exists(file_path):
-                    logging.info("{} already extracted.".format(file_path))
+                    logging.info(f"{file_path} already extracted.")
                     if not overwrite:
                         continue
                 zfile.extract(file_, to_path)
         files = [f for f in files if os.path.isfile(f)]
-        logging.info("Finished extracting zip file {}.".format(from_path))
+        logging.info(f"Finished extracting zip file {from_path}.")
         return files
 
     elif from_path.endswith(".gz"):
-        logging.info("Opening gz file {} to {}.".format(from_path, to_path))
+        logging.info(f"Opening gz file {from_path} to {to_path}.")
         default_block_size = 65536
         filename = from_path[:-3]
         files = [filename]
@@ -248,7 +239,7 @@ def extract_archive(from_path, to_path=None, overwrite=False):
                 else:
                     d_file.write(block)
             d_file.write(block)
-        logging.info("Finished extracting gz file {}.".format(from_path))
+        logging.info(f"Finished extracting gz file {from_path}.")
         return files
 
     else:
@@ -267,9 +258,7 @@ def save_frames_grid(img_array, out_path):
     elif len(img_array.shape) == 5:
         b, t, c, h, w = img_array.shape
         img_array = img_array.view(-1, c, h, w)
-    elif len(img_array.shape) == 4:
-        pass
-    else:
+    elif len(img_array.shape) != 4:
         raise NotImplementedError(
             "Supports only (b,t,c,h,w)-shaped inputs. First two dimensions can be ignored."
         )

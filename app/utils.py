@@ -18,14 +18,11 @@ from skimage import transform as skimage_transform
 def resize_img(raw_img):
     w, h = raw_img.size
     scaling_factor = 240 / w
-    resized_image = raw_img.resize((int(w * scaling_factor), int(h * scaling_factor)))
-    return resized_image
+    return raw_img.resize((int(w * scaling_factor), int(h * scaling_factor)))
 
 
 def read_img(filepath):
-    raw_image = Image.open(filepath).convert("RGB")
-
-    return raw_image
+    return Image.open(filepath).convert("RGB")
 
 
 @st.cache(
@@ -42,8 +39,7 @@ def load_model_cache(name, model_type, is_eval, device):
 
 @st.cache(allow_output_mutation=True)
 def init_bert_tokenizer():
-    tokenizer = BlipBase.init_tokenizer()
-    return tokenizer
+    return BlipBase.init_tokenizer()
 
 
 def getAttMap(img, attMap, blur=True, overlap=True):
@@ -75,7 +71,6 @@ def getAttMap(img, attMap, blur=True, overlap=True):
     allow_output_mutation=True,
 )
 def load_blip_itm_model(device, model_type="base"):
-    model = load_model(
+    return load_model(
         "blip_image_text_matching", model_type, is_eval=True, device=device
     )
-    return model

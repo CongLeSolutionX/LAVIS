@@ -37,9 +37,9 @@ def load_feat():
     dirname = os.path.join(os.path.dirname(__file__), "assets")
     filename = "path2feat_coco_train2014.pth"
     filepath = os.path.join(dirname, filename)
-    url = "https://storage.googleapis.com/sfr-vision-language-research/LAVIS/assets/path2feat_coco_train2014.pth"
-
     if not os.path.exists(filepath):
+        url = "https://storage.googleapis.com/sfr-vision-language-research/LAVIS/assets/path2feat_coco_train2014.pth"
+
         download_url(url=url, root=dirname, filename="path2feat_coco_train2014.pth")
 
     path2feat = torch.load(filepath)
@@ -169,11 +169,7 @@ def app():
         avg_gradcams = avg_gradcams_sorted
         all_raw_images = all_raw_images_sorted
 
-    if show_gradcam:
-        images_to_show = iter(avg_gradcams)
-    else:
-        images_to_show = iter(all_raw_images)
-
+    images_to_show = iter(avg_gradcams) if show_gradcam else iter(all_raw_images)
     for _ in range(num_rows):
         with st.container():
             for col in st.columns(num_cols):

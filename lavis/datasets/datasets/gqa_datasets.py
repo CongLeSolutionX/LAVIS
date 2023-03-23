@@ -86,12 +86,7 @@ class GQAEvalDataset(VQAEvalDataset, __DisplMixin):
         image = self.vis_processor(image)
         question = self.text_processor(ann["question"])
 
-        if "answer" in ann:
-            # answer is a string
-            answer = ann["answer"]
-        else:
-            answer = None
-
+        answer = ann["answer"] if "answer" in ann else None
         return {
             "image": image,
             "text_input": question,

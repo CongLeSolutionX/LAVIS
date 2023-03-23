@@ -138,62 +138,61 @@ class AlbefNLVR(AlbefBase, MomentumDistilationMixin):
 
         prediction = self.cls_head(encoder_output.last_hidden_state[:, 0, :])
 
-        if is_train:
-            if self.use_distill:
-                with torch.no_grad():
-                    self._momentum_update()
+        if not is_train:
+            return {"predictions": prediction, "targets": targets}
+        if self.use_distill:
+            with torch.no_grad():
+                self._momentum_update()
 
-                    image_embeds_m = self.visual_encoder_m(images)
-                    image0_embeds_m, image1_embeds_m = torch.split(
-                        image_embeds_m, targets.size(0)
-                    )
-                    encoder_output_m = self.text_encoder(
-                        text.input_ids,
-                        attention_mask=text.attention_mask,
-                        encoder_hidden_states=[image0_embeds_m, image1_embeds_m],
-                        encoder_attention_mask=[
-                            image_atts[: image0_embeds_m.size(0)],
-                            image_atts[image0_embeds_m.size(0) :],
-                        ],
-                        return_dict=True,
-                    )
-
-                    prediction_m = self.cls_head_m(
-                        encoder_output_m.last_hidden_state[:, 0, :]
-                    )
-
-                alpha = self.alpha * self._rampup_factor(
-                    epoch=samples["epoch"],
-                    iters=samples["iters"],
-                    num_iters_per_epoch=samples["num_iters_per_epoch"],
+                image_embeds_m = self.visual_encoder_m(images)
+                image0_embeds_m, image1_embeds_m = torch.split(
+                    image_embeds_m, targets.size(0)
+                )
+                encoder_output_m = self.text_encoder(
+                    text.input_ids,
+                    attention_mask=text.attention_mask,
+                    encoder_hidden_states=[image0_embeds_m, image1_embeds_m],
+                    encoder_attention_mask=[
+                        image_atts[: image0_embeds_m.size(0)],
+                        image_atts[image0_embeds_m.size(0) :],
+                    ],
+                    return_dict=True,
                 )
 
-                loss = (1 - alpha) * F.cross_entropy(
-                    prediction, targets
-                ) - alpha * torch.sum(
-                    F.log_softmax(prediction, dim=1) * F.softmax(prediction_m, dim=1),
-                    dim=1,
-                ).mean()
-            else:
-                loss = F.cross_entropy(prediction, targets)
+                prediction_m = self.cls_head_m(
+                    encoder_output_m.last_hidden_state[:, 0, :]
+                )
 
-                encoder_output_m = None
-                image0_embeds_m, image1_embeds_m = None, None
-
-            # return {"loss": loss}
-            return AlbefOutput(
-                loss=loss,
-                intermediate_output=AlbefIntermediateOutput(
-                    image_embeds=torch.stack([image0_embeds, image1_embeds], dim=0),
-                    image_embeds_m=torch.stack(
-                        [image0_embeds_m, image1_embeds_m], dim=0
-                    ),
-                    encoder_output=encoder_output,
-                    encoder_output_m=encoder_output_m,
-                ),
+            alpha = self.alpha * self._rampup_factor(
+                epoch=samples["epoch"],
+                iters=samples["iters"],
+                num_iters_per_epoch=samples["num_iters_per_epoch"],
             )
+
+            loss = (1 - alpha) * F.cross_entropy(
+                prediction, targets
+            ) - alpha * torch.sum(
+                F.log_softmax(prediction, dim=1) * F.softmax(prediction_m, dim=1),
+                dim=1,
+            ).mean()
         else:
-            return {"predictions": prediction, "targets": targets}
+            loss = F.cross_entropy(prediction, targets)
+
+            encoder_output_m = None
+            image0_embeds_m, image1_embeds_m = None, None
+
+        # return {"loss": loss}
+        return AlbefOutput(
+            loss=loss,
+            intermediate_output=AlbefIntermediateOutput(
+                image_embeds=torch.stack([image0_embeds, image1_embeds], dim=0),
+                image_embeds_m=torch.stack(
+                    [image0_embeds_m, image1_embeds_m], dim=0
+                ),
+                encoder_output=encoder_output,
+                encoder_output_m=encoder_output_m,
+            ),
+        )
 
     def share_cross_attention(self, model):
         for i in range(6):
@@ -211,13 +210,12 @@ class AlbefNLVR(AlbefBase, MomentumDistilationMixin):
                             module_0.bias = module_1.bias
 
     def predict(self, samples):
-        output = self.forward(samples, is_train=False)
-        return output
+        return self.forward(samples, is_train=False)
 
     def load_from_pretrained(self, url_or_filename, use_distill=True):
         _, msg = super().load_from_pretrained(url_or_filename)
 
-        if use_distill and any(["_m" in k for k in msg.missing_keys]):
+        if use_distill and any("_m" in k for k in msg.missing_keys):
             # this is required when initializing the model from TA pre-trained weights
             self.copy_params()
 
@@ -241,9 +239,9 @@ class AlbefNLVR(AlbefBase, MomentumDistilationMixin):
         num_classes = cfg.get("num_classes", -1)
         max_txt_len = cfg.get("max_txt_len", 40)
 
-        assert num_classes > 1, "Invalid number of classes provided, found {}".format(
-            num_classes
-        )
+        assert (
+            num_classes > 1
+        ), f"Invalid number of classes provided, found {num_classes}"
 
         model = cls(
             image_encoder=image_encoder,

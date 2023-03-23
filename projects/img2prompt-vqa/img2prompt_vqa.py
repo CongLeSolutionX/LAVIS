@@ -10,19 +10,6 @@
 
 # install requirements
 import sys
-# if 'google.colab' in sys.modules:
- #   print('Running in Colab.')
-  #  get_ipython().system('git clone https://github.com/salesforce/LAVIS')
-   # get_ipython().run_line_magic('cd', 'LAVIS')
-   # get_ipython().system('pip install .')
-   # get_ipython().system('pip3 install https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.0.0/en_core_web_sm-3.0.0.tar.gz')
-#else:
- #   get_ipython().system('pip install omegaconf')
-  #  get_ipython().run_line_magic('cd', '../..')
-   # get_ipython().system('pip install .')
-  # 'pip3 install https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.0.0/en_core_web_sm-3.0.0.tar.gz')
-
-
 # In[3]:
 
 
@@ -111,7 +98,7 @@ fig, ax = plt.subplots(1, 1, figsize=(5, 5))
 ax.imshow(avg_gradcam)
 ax.set_yticks([])
 ax.set_xticks([])
-print('Question: {}'.format(question))
+print(f'Question: {question}')
 
 
 # #### 2. Image Captioning
@@ -132,7 +119,9 @@ print(samples['captions'][0][:5])
 
 
 samples = model.forward_qa_generation(samples)
-print('Sample Question: {} \nSample Answer: {}'.format(samples['questions'][:5], samples['answers'][:5]))
+print(
+    f"Sample Question: {samples['questions'][:5]} \nSample Answer: {samples['answers'][:5]}"
+)
 
 
 # #### 4. Prompt Construction
@@ -151,9 +140,9 @@ def load_model(model_selection):
     tokenizer = AutoTokenizer.from_pretrained(model_selection, use_fast=False)
     return model,tokenizer
 def postprocess_Answer(text):
-    for i, ans in enumerate(text):
+    for ans in text:
         for j, w in enumerate(ans):
-            if w == '.' or w == '\n':
+            if w in ['.', '\n']:
                 ans = ans[:j].lower()
                 break
     return ans
@@ -163,21 +152,14 @@ model,tokenizer = load_model('facebook/opt-6.7b')
 Img2Prompt_input = tokenizer(Img2Prompt, padding='longest', truncation=True, return_tensors="pt").to(
     device)
 
-assert (len(Img2Prompt_input.input_ids[0])+20) <=2048
-# print(len(question_input.attention_mask[0]))
-
-outputs_list  = []
+assert len(Img2Prompt_input.input_ids[0]) <= 2028
 outputs = model.generate(input_ids=Img2Prompt_input.input_ids,
                              attention_mask=Img2Prompt_input.attention_mask,
                              max_length=20+len(Img2Prompt_input.input_ids[0]),
                              return_dict_in_generate=True,
                              output_scores = True
                              )
-outputs_list.append(outputs)
-
-
-
-
+outputs_list = [outputs]
 pred_answer = tokenizer.batch_decode(outputs.sequences[:, len(Img2Prompt_input.input_ids[0]):])
 pred_answer = postprocess_Answer(pred_answer)
 print({"question": question, "answer": pred_answer})

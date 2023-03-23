@@ -7,6 +7,7 @@
  Based on https://github.com/mlfoundations/open_clip
 """
 
+
 """ CLIP Model
 Adapted from https://github.com/openai/CLIP. Originally MIT License, Copyright (c) 2021 OpenAI.
 """
@@ -43,7 +44,9 @@ from .pretrained import (
     list_pretrained_tag_models,
 )
 
-_MODEL_CONFIG_PATHS = [Path(__file__).parent.parent.parent / f"configs/models/clip/"]
+_MODEL_CONFIG_PATHS = [
+    Path(__file__).parent.parent.parent / "configs/models/clip/"
+]
 _MODEL_CONFIGS = {}  # directory (model_name: config) of model architecture configs
 
 
@@ -196,9 +199,7 @@ class ModifiedResNet(nn.Module):
         layers = [Bottleneck(self._inplanes, planes, stride)]
 
         self._inplanes = planes * Bottleneck.expansion
-        for _ in range(1, blocks):
-            layers.append(Bottleneck(self._inplanes, planes))
-
+        layers.extend(Bottleneck(self._inplanes, planes) for _ in range(1, blocks))
         return nn.Sequential(*layers)
 
     def init_parameters(self):
@@ -677,9 +678,7 @@ class CLIP(BaseModel):
 
         assert (
             model_type in cls.PRETRAINED_MODEL_CONFIG_DICT
-        ), "Unknown model type {}. \n Available types: {}".format(
-            model_type, cls.PRETRAINED_MODEL_CONFIG_DICT.keys()
-        )
+        ), f"Unknown model type {model_type}. \n Available types: {cls.PRETRAINED_MODEL_CONFIG_DICT.keys()}"
         return get_abs_path(cls.PRETRAINED_MODEL_CONFIG_DICT[model_type])
 
     @classmethod
@@ -755,7 +754,7 @@ class CLIP(BaseModel):
 
         total_time = time.time() - start_time
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-        logging.info("Evaluation time {}".format(total_time_str))
+        logging.info(f"Evaluation time {total_time_str}")
 
         return sims_matrix_i2t.cpu().numpy(), sims_matrix_t2i.cpu().numpy()
 
@@ -797,8 +796,9 @@ def build_model_from_openai_state_dict(state_dict: dict):
         vision_layers = len(
             [
                 k
-                for k in state_dict.keys()
-                if k.startswith("visual.") and k.endswith(".attn.in_proj_weight")
+                for k in state_dict
+                if k.startswith("visual.")
+                and k.endswith(".attn.in_proj_weight")
             ]
         )
         vision_patch_size = state_dict["visual.conv1.weight"].shape[-1]
@@ -809,11 +809,11 @@ def build_model_from_openai_state_dict(state_dict: dict):
     else:
         counts: list = [
             len(
-                set(
+                {
                     k.split(".")[2]
                     for k in state_dict
                     if k.startswith(f"visual.layer{b}")
-                )
+                }
             )
             for b in [1, 2, 3, 4]
         ]
@@ -835,11 +835,11 @@ def build_model_from_openai_state_dict(state_dict: dict):
     transformer_width = state_dict["ln_final.weight"].shape[0]
     transformer_heads = transformer_width // 64
     transformer_layers = len(
-        set(
+        {
             k.split(".")[2]
             for k in state_dict
-            if k.startswith(f"transformer.resblocks")
-        )
+            if k.startswith("transformer.resblocks")
+        }
     )
 
     vision_cfg = CLIPVisionCfg(
@@ -911,10 +911,9 @@ def _rescan_model_configs():
             if all(a in model_cfg for a in ("embed_dim", "vision_cfg", "text_cfg")):
                 _MODEL_CONFIGS[cf.stem] = model_cfg
 
-    _MODEL_CONFIGS = {
-        k: v
-        for k, v in sorted(_MODEL_CONFIGS.items(), key=lambda x: _natural_key(x[0]))
-    }
+    _MODEL_CONFIGS = dict(
+        sorted(_MODEL_CONFIGS.items(), key=lambda x: _natural_key(x[0]))
+    )
 
 
 _rescan_model_configs()  # initial populate of model config registry
@@ -948,7 +947,7 @@ def create_model(
         logging.info(f"Loading pretrained {model_name} from OpenAI.")
         model = load_openai_model(model_name, device=device, jit=jit)
         # See https://discuss.pytorch.org/t/valueerror-attemting-to-unscale-fp16-gradients/81372
-        if precision == "amp" or precision == "fp32":
+        if precision in {"amp", "fp32"}:
             model = model.float()
     else:
         logging.info(f"No pretrained weights loaded for {model_name} model.")
@@ -978,8 +977,7 @@ def create_model(
 
         if pretrained:
             checkpoint_path = ""
-            url = get_pretrained_url(model_name, pretrained)
-            if url:
+            if url := get_pretrained_url(model_name, pretrained):
                 checkpoint_path = download_pretrained(url)
             elif os.path.exists(pretrained):
                 checkpoint_path = pretrained

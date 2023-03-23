@@ -42,11 +42,7 @@ def parse_args():
         "change to --cfg-options instead.",
     )
 
-    args = parser.parse_args()
-    # if 'LOCAL_RANK' not in os.environ:
-    #     os.environ['LOCAL_RANK'] = str(args.local_rank)
-
-    return args
+    return parser.parse_args()
 
 
 def setup_seeds(config):

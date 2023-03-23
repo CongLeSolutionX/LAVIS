@@ -53,7 +53,7 @@ def merge_datasets(download_path, storage_path):
     test_path = os.path.join(download_path, "TestVideo")
     train_test_path = storage_path
 
-    print("Merging to {}".format(train_test_path))
+    print(f"Merging to {train_test_path}")
 
     os.makedirs(train_test_path, exist_ok=True)
 
@@ -87,7 +87,7 @@ if __name__ == "__main__":
 
     try:
         for k, v in DATA_URL.items():
-            print("Downloading {} to {}".format(v, k))
+            print(f"Downloading {v} to {k}")
             download_datasets(download_dir, v)
     except Exception as e:
         # remove download dir if failed

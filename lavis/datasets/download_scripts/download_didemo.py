@@ -32,7 +32,7 @@ def move_files(download_path, storage_path):
     """
     Move files from download_path to storage_path
     """
-    print("Moving to {}".format(storage_path))
+    print(f"Moving to {storage_path}")
 
     os.makedirs(storage_path, exist_ok=True)
 
@@ -59,7 +59,7 @@ if __name__ == "__main__":
         exit(0)
 
     try:
-        print("Downloading {} to {}".format(DATA_URL, download_dir))
+        print(f"Downloading {DATA_URL} to {download_dir}")
         download_datasets(download_dir, DATA_URL)
     except Exception as e:
         # remove download dir if failed

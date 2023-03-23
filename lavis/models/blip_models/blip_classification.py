@@ -140,8 +140,7 @@ class BlipClassification(BlipBase, MomentumDistilationMixin):
             return {"predictions": prediction, "targets": targets}
 
     def predict(self, samples):
-        output = self.forward(samples, is_train=False)
-        return output
+        return self.forward(samples, is_train=False)
 
     @classmethod
     def from_config(cls, cfg=None):
@@ -155,9 +154,9 @@ class BlipClassification(BlipBase, MomentumDistilationMixin):
         alpha = cfg.get("alpha", 0.4)
         max_txt_len = cfg.get("max_txt_len", 40)
 
-        assert num_classes > 1, "Invalid number of classes provided, found {}".format(
-            num_classes
-        )
+        assert (
+            num_classes > 1
+        ), f"Invalid number of classes provided, found {num_classes}"
 
         model = cls(
             image_encoder=image_encoder,

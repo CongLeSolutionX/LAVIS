@@ -32,11 +32,7 @@ class AlproBase(BaseModel):
         else:
             raise RuntimeError("checkpoint url or path is invalid")
 
-        if "model" in checkpoint:
-            state_dict = checkpoint["model"]
-        else:
-            state_dict = checkpoint
-
+        state_dict = checkpoint["model"] if "model" in checkpoint else checkpoint
         for key in list(state_dict.keys()):
             if "bert" in key:
                 new_key = key.replace("bert.", "")
@@ -69,8 +65,8 @@ class AlproBase(BaseModel):
             )
 
         msg = self.load_state_dict(state_dict, strict=False)
-        logging.info("Missing keys {}".format(msg.missing_keys))
-        logging.info("load checkpoint from %s" % url_or_filename)
+        logging.info(f"Missing keys {msg.missing_keys}")
+        logging.info(f"load checkpoint from {url_or_filename}")
 
         return msg
 

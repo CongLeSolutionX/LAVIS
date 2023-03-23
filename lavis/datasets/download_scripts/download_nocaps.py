@@ -94,9 +94,9 @@ if __name__ == "__main__":
     val_url = "https://nocaps.s3.amazonaws.com/nocaps_val_4500_captions.json"
     tst_url = "https://s3.amazonaws.com/nocaps/nocaps_test_image_info.json"
 
-    print("Downloading validation annotations from %s" % val_url)
+    print(f"Downloading validation annotations from {val_url}")
     download_file(val_url, "tmp/nocaps_val_ann.json")
-    print("Downloading testing annotations from %s" % tst_url)
+    print(f"Downloading testing annotations from {tst_url}")
     download_file(tst_url, "tmp/nocaps_tst_ann.json")
 
     # open annotations

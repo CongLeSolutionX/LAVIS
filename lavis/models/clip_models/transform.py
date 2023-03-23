@@ -34,7 +34,7 @@ class ResizeMaxSize(nn.Module):
             raise TypeError(f"Size should be int. Got {type(max_size)}")
         self.max_size = max_size
         self.interpolation = interpolation
-        self.fn = min if fn == "min" else min
+        self.fn = min
         self.fill = fill
 
     def forward(self, img):
@@ -93,19 +93,19 @@ def image_transform(
                 normalize,
             ]
         )
-    else:
-        if resize_longest_max:
-            transforms = [ResizeMaxSize(image_size, fill=fill_color)]
-        else:
-            transforms = [
-                Resize(image_size, interpolation=InterpolationMode.BICUBIC),
-                CenterCrop(image_size),
-            ]
-        transforms.extend(
-            [
-                _convert_to_rgb,
-                ToTensor(),
-                normalize,
-            ]
-        )
-        return Compose(transforms)
+    transforms = (
+        [ResizeMaxSize(image_size, fill=fill_color)]
+        if resize_longest_max
+        else [
+            Resize(image_size, interpolation=InterpolationMode.BICUBIC),
+            CenterCrop(image_size),
+        ]
+    )
+    transforms.extend(
+        [
+            _convert_to_rgb,
+            ToTensor(),
+            normalize,
+        ]
+    )
+    return Compose(transforms)

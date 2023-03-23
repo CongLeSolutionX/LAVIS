@@ -39,13 +39,11 @@ def _df_split_apply(tup_arg):
 
 def df_multiprocess(df, processes, chunk_size, func, dataset_name):
     print("Generating parts...")
-    with shelve.open(
-        "%s_%s_%s_results.tmp" % (dataset_name, func.__name__, chunk_size)
-    ) as results:
+    with shelve.open(f"{dataset_name}_{func.__name__}_{chunk_size}_results.tmp") as results:
 
         pbar = tqdm(total=len(df), position=0)
         # Resume:
-        finished_chunks = set([int(k) for k in results.keys()])
+        finished_chunks = {int(k) for k in results.keys()}
         pbar.desc = "Resuming"
         for k in results.keys():
             pbar.update(len(results[str(k)][1]))
@@ -67,9 +65,7 @@ def df_multiprocess(df, processes, chunk_size, func, dataset_name):
 
         pbar.desc = "Downloading"
         with Pool(processes) as pool:
-            for i, result in enumerate(
-                pool.imap_unordered(_df_split_apply, pool_data, 2)
-            ):
+            for result in pool.imap_unordered(_df_split_apply, pool_data, 2):
                 results[str(result[0])] = result
                 pbar.update(len(result[1]))
         pbar.close()
@@ -80,16 +76,7 @@ def df_multiprocess(df, processes, chunk_size, func, dataset_name):
 
 # Unique name based on url
 def _file_name(row):
-    name = (
-        "%s/%s_%s"
-        % (
-            # row["folder"],
-            storage_dir,
-            row.name,
-            (zlib.crc32(row["url"].encode("utf-8")) & 0xFFFFFFFF),
-        )
-        + ".jpg"
-    )
+    name = f'{storage_dir}/{row.name}_{zlib.crc32(row["url"].encode("utf-8")) & 4294967295}.jpg'
     return name
 
 
@@ -172,7 +159,7 @@ def download_image(row):
 
 
 def open_tsv(fname, folder):
-    print("Opening %s Data File..." % fname)
+    print(f"Opening {fname} Data File...")
     df = pd.read_csv(
         fname, sep="\t", names=["caption", "url"]
     )  # , usecols=range(1, 2))
@@ -183,9 +170,7 @@ def open_tsv(fname, folder):
 
 def df_from_shelve(chunk_size, func, dataset_name):
     print("Generating Dataframe from results...")
-    with shelve.open(
-        "%s_%s_%s_results.tmp" % (dataset_name, func.__name__, chunk_size)
-    ) as results:
+    with shelve.open(f"{dataset_name}_{func.__name__}_{chunk_size}_results.tmp") as results:
         keylist = sorted([int(k) for k in results.keys()])
         df = pd.concat([results[str(k)][1] for k in keylist], sort=True)
     return df
@@ -220,7 +205,7 @@ df = df_from_shelve(
     chunk_size=images_per_part, func=download_image, dataset_name=data_name
 )
 df.to_csv(
-    "downloaded_%s_report.tsv.gz" % data_name,
+    f"downloaded_{data_name}_report.tsv.gz",
     compression="gzip",
     sep="\t",
     header=False,

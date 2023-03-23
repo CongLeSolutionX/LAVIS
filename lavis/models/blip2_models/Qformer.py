@@ -82,11 +82,7 @@ class BertEmbeddings(nn.Module):
         query_embeds=None,
         past_key_values_length=0,
     ):
-        if input_ids is not None:
-            seq_length = input_ids.size()[1]
-        else:
-            seq_length = 0
-
+        seq_length = input_ids.size()[1] if input_ids is not None else 0
         if position_ids is None:
             position_ids = self.position_ids[
                 :, past_key_values_length : seq_length + past_key_values_length
@@ -136,10 +132,7 @@ class BertSelfAttention(nn.Module):
         self.position_embedding_type = getattr(
             config, "position_embedding_type", "absolute"
         )
-        if (
-            self.position_embedding_type == "relative_key"
-            or self.position_embedding_type == "relative_key_query"
-        ):
+        if self.position_embedding_type in {"relative_key", "relative_key_query"}:
             self.max_position_embeddings = config.max_position_embeddings
             self.distance_embedding = nn.Embedding(
                 2 * config.max_position_embeddings - 1, self.attention_head_size
@@ -204,10 +197,7 @@ class BertSelfAttention(nn.Module):
         # Take the dot product between "query" and "key" to get the raw attention scores.
         attention_scores = torch.matmul(query_layer, key_layer.transpose(-1, -2))
 
-        if (
-            self.position_embedding_type == "relative_key"
-            or self.position_embedding_type == "relative_key_query"
-        ):
+        if self.position_embedding_type in ["relative_key", "relative_key_query"]:
             seq_length = hidden_states.size()[1]
             position_ids_l = torch.arange(
                 seq_length, dtype=torch.long, device=hidden_states.device
@@ -340,10 +330,7 @@ class BertAttention(nn.Module):
         )
         attention_output = self.output(self_outputs[0], hidden_states)
 
-        outputs = (attention_output,) + self_outputs[
-            1:
-        ]  # add attentions if we output them
-        return outputs
+        return (attention_output,) + self_outputs[1:]
 
 
 class BertIntermediate(nn.Module):
@@ -475,13 +462,11 @@ class BertLayer(nn.Module):
 
     def feed_forward_chunk(self, attention_output):
         intermediate_output = self.intermediate(attention_output)
-        layer_output = self.output(intermediate_output, attention_output)
-        return layer_output
+        return self.output(intermediate_output, attention_output)
 
     def feed_forward_chunk_query(self, attention_output):
         intermediate_output = self.intermediate_query(attention_output)
-        layer_output = self.output_query(intermediate_output, attention_output)
-        return layer_output
+        return self.output_query(intermediate_output, attention_output)
 
 
 class BertEncoder(nn.Module):
@@ -568,8 +553,16 @@ class BertEncoder(nn.Module):
         if output_hidden_states:
             all_hidden_states = all_hidden_states + (hidden_states,)
 
-        if not return_dict:
-            return tuple(
+        return (
+            BaseModelOutputWithPastAndCrossAttentions(
+                last_hidden_state=hidden_states,
+                past_key_values=next_decoder_cache,
+                hidden_states=all_hidden_states,
+                attentions=all_self_attentions,
+                cross_attentions=all_cross_attentions,
+            )
+            if return_dict
+            else tuple(
                 v
                 for v in [
                     hidden_states,
@@ -580,12 +573,6 @@ class BertEncoder(nn.Module):
                 ]
                 if v is not None
             )
-        return BaseModelOutputWithPastAndCrossAttentions(
-            last_hidden_state=hidden_states,
-            past_key_values=next_decoder_cache,
-            hidden_states=all_hidden_states,
-            attentions=all_self_attentions,
-            cross_attentions=all_cross_attentions,
         )
 
 
@@ -647,8 +634,7 @@ class BertOnlyMLMHead(nn.Module):
         self.predictions = BertLMPredictionHead(config)
 
     def forward(self, sequence_output):
-        prediction_scores = self.predictions(sequence_output)
-        return prediction_scores
+        return self.predictions(sequence_output)
 
 
 class BertPreTrainedModel(PreTrainedModel):
@@ -785,9 +771,7 @@ class BertModel(BertPreTrainedModel):
                 extended_attention_mask = attention_mask[:, None, None, :]
         else:
             raise ValueError(
-                "Wrong shape for input_ids (shape {}) or attention_mask (shape {})".format(
-                    input_shape, attention_mask.shape
-                )
+                f"Wrong shape for input_ids (shape {input_shape}) or attention_mask (shape {attention_mask.shape})"
             )
 
         # Since attention_mask is 1.0 for positions we want to attend and 0.0 for
@@ -952,16 +936,17 @@ class BertModel(BertPreTrainedModel):
             self.pooler(sequence_output) if self.pooler is not None else None
         )
 
-        if not return_dict:
-            return (sequence_output, pooled_output) + encoder_outputs[1:]
-
-        return BaseModelOutputWithPoolingAndCrossAttentions(
-            last_hidden_state=sequence_output,
-            pooler_output=pooled_output,
-            past_key_values=encoder_outputs.past_key_values,
-            hidden_states=encoder_outputs.hidden_states,
-            attentions=encoder_outputs.attentions,
-            cross_attentions=encoder_outputs.cross_attentions,
+        return (
+            BaseModelOutputWithPoolingAndCrossAttentions(
+                last_hidden_state=sequence_output,
+                pooler_output=pooled_output,
+                past_key_values=encoder_outputs.past_key_values,
+                hidden_states=encoder_outputs.hidden_states,
+                attentions=encoder_outputs.attentions,
+                cross_attentions=encoder_outputs.cross_attentions,
+            )
+            if return_dict
+            else (sequence_output, pooled_output) + encoder_outputs[1:]
         )
 
 

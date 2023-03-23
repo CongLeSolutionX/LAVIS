@@ -377,10 +377,7 @@ class AlbefPretrain(AlbefBase, MomentumDistilationMixin, SharedQueueMixin):
         input_ids[indices_random] = random_words[indices_random]
         # The rest of the time (10% of the time) we keep the masked input tokens unchanged
 
-        if targets is not None:
-            return input_ids, targets
-        else:
-            return input_ids
+        return (input_ids, targets) if targets is not None else input_ids
 
     @classmethod
     def from_config(cls, cfg=None):
@@ -401,7 +398,7 @@ class AlbefPretrain(AlbefBase, MomentumDistilationMixin, SharedQueueMixin):
         max_txt_len = cfg.get("max_txt_len", 30)
         queue_size = cfg.get("queue_size", 65536)
 
-        model = cls(
+        return cls(
             image_encoder=image_encoder,
             text_encoder=text_encoder,
             queue_size=queue_size,
@@ -412,5 +409,3 @@ class AlbefPretrain(AlbefBase, MomentumDistilationMixin, SharedQueueMixin):
             alpha=alpha,
             max_txt_len=max_txt_len,
         )
-
-        return model

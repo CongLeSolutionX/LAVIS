@@ -38,11 +38,7 @@ class AlbefBase(BaseModel):
         else:
             raise RuntimeError("checkpoint url or path is invalid")
 
-        if "model" in checkpoint:
-            state_dict = checkpoint["model"]
-        else:
-            state_dict = checkpoint
-
+        state_dict = checkpoint["model"] if "model" in checkpoint else checkpoint
         state_dict["visual_encoder.pos_embed"] = interpolate_pos_embed(
             state_dict["visual_encoder.pos_embed"], self.visual_encoder
         )
@@ -62,14 +58,16 @@ class AlbefBase(BaseModel):
                     del state_dict[key]
 
         for key in self.state_dict().keys():
-            if key in state_dict.keys():
-                if state_dict[key].shape != self.state_dict()[key].shape:
-                    del state_dict[key]
+            if (
+                key in state_dict.keys()
+                and state_dict[key].shape != self.state_dict()[key].shape
+            ):
+                del state_dict[key]
 
         msg = self.load_state_dict(state_dict, strict=False)
 
-        logging.info("Missing keys {}".format(msg.missing_keys))
-        logging.info("load checkpoint from %s" % url_or_filename)
+        logging.info(f"Missing keys {msg.missing_keys}")
+        logging.info(f"load checkpoint from {url_or_filename}")
         return msg
 
 
@@ -197,6 +195,6 @@ def compute_sim_matrix(model, data_loader, **kwargs):
 
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-    logging.info("Evaluation time {}".format(total_time_str))
+    logging.info(f"Evaluation time {total_time_str}")
 
     return score_matrix_i2t.cpu().numpy(), score_matrix_t2i.cpu().numpy()

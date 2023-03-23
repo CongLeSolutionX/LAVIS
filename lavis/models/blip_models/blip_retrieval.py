@@ -233,6 +233,10 @@ class BlipRetrieval(BlipBase, MomentumDistilationMixin, SharedQueueMixin):
         )
 
         idxs = concat_all_gather(idx)
+        # select a negative image (from all ranks) for each text
+        image_embeds_neg = []
+        text_ids_neg = []
+        text_atts_neg = []
         if self.negative_all_rank:
             # compute sample similarity
             with torch.no_grad():
@@ -252,8 +256,6 @@ class BlipRetrieval(BlipBase, MomentumDistilationMixin, SharedQueueMixin):
 
             image_embeds_world = all_gather_with_grad(image_embeds)
 
-            # select a negative image (from all ranks) for each text
-            image_embeds_neg = []
             for b in range(bs):
                 neg_idx = torch.multinomial(weights_t2i[b], 1).item()
                 image_embeds_neg.append(image_embeds_world[neg_idx])
@@ -263,8 +265,6 @@ class BlipRetrieval(BlipBase, MomentumDistilationMixin, SharedQueueMixin):
             input_ids_world = concat_all_gather(encoder_input_ids)
             att_mask_world = concat_all_gather(text.attention_mask)
 
-            text_ids_neg = []
-            text_atts_neg = []
             for b in range(bs):
                 neg_idx = torch.multinomial(weights_i2t[b], 1).item()
                 text_ids_neg.append(input_ids_world[neg_idx])
@@ -283,16 +283,11 @@ class BlipRetrieval(BlipBase, MomentumDistilationMixin, SharedQueueMixin):
                 weights_t2i = F.softmax(sim_t2i, dim=1)
                 weights_t2i.masked_fill_(mask, 0)
 
-            # select a negative image (from same rank) for each text
-            image_embeds_neg = []
             for b in range(bs):
                 neg_idx = torch.multinomial(weights_t2i[b], 1).item()
                 image_embeds_neg.append(image_embeds[neg_idx])
             image_embeds_neg = torch.stack(image_embeds_neg, dim=0)
 
-            # select a negative text (from same rank) for each image
-            text_ids_neg = []
-            text_atts_neg = []
             for b in range(bs):
                 neg_idx = torch.multinomial(weights_i2t[b], 1).item()
                 text_ids_neg.append(encoder_input_ids[neg_idx])

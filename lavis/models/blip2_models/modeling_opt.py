@@ -726,12 +726,11 @@ class OPTDecoder(OPTPreTrainedModel):
 
         # check if head_mask has a correct number of layers specified if desired
         for attn_mask, mask_name in zip([head_mask], ["head_mask"]):
-            if attn_mask is not None:
-                if attn_mask.size()[0] != (len(self.layers)):
-                    raise ValueError(
-                        f"The `{mask_name}` should be specified for {len(self.layers)} layers, but it is for"
-                        f" {head_mask.size()[0]}."
-                    )
+            if attn_mask is not None and attn_mask.size()[0] != (len(self.layers)):
+                raise ValueError(
+                    f"The `{mask_name}` should be specified for {len(self.layers)} layers, but it is for"
+                    f" {head_mask.size()[0]}."
+                )
 
         for idx, decoder_layer in enumerate(self.layers):
             # add LayerDrop (see https://arxiv.org/abs/1909.11556 for description)
@@ -798,17 +797,24 @@ class OPTDecoder(OPTPreTrainedModel):
             all_hidden_states += (hidden_states,)
 
         next_cache = next_decoder_cache if use_cache else None
-        if not return_dict:
-            return tuple(
+        return (
+            BaseModelOutputWithPast(
+                last_hidden_state=hidden_states,
+                past_key_values=next_cache,
+                hidden_states=all_hidden_states,
+                attentions=all_self_attns,
+            )
+            if return_dict
+            else tuple(
                 v
-                for v in [hidden_states, next_cache, all_hidden_states, all_self_attns]
+                for v in [
+                    hidden_states,
+                    next_cache,
+                    all_hidden_states,
+                    all_self_attns,
+                ]
                 if v is not None
             )
-        return BaseModelOutputWithPast(
-            last_hidden_state=hidden_states,
-            past_key_values=next_cache,
-            hidden_states=all_hidden_states,
-            attentions=all_self_attns,
         )
 
 
@@ -883,14 +889,15 @@ class OPTModel(OPTPreTrainedModel):
             return_dict=return_dict,
         )
 
-        if not return_dict:
-            return decoder_outputs
-
-        return BaseModelOutputWithPast(
-            last_hidden_state=decoder_outputs.last_hidden_state,
-            past_key_values=decoder_outputs.past_key_values,
-            hidden_states=decoder_outputs.hidden_states,
-            attentions=decoder_outputs.attentions,
+        return (
+            BaseModelOutputWithPast(
+                last_hidden_state=decoder_outputs.last_hidden_state,
+                past_key_values=decoder_outputs.past_key_values,
+                hidden_states=decoder_outputs.hidden_states,
+                attentions=decoder_outputs.attentions,
+            )
+            if return_dict
+            else decoder_outputs
         )
 
 
@@ -1086,9 +1093,8 @@ class OPTForCausalLM(OPTPreTrainedModel):
         **kwargs,
     ):
         # if model is used as a decoder in encoder-decoder model, the decoder attention mask is created on the fly
-        if attention_mask is None:
-            if input_ids is not None:
-                attention_mask = input_ids.new_ones(input_ids.shape)
+        if attention_mask is None and input_ids is not None:
+            attention_mask = input_ids.new_ones(input_ids.shape)
         if past:
             input_ids = input_ids[:, -1:]
             query_embeds = None

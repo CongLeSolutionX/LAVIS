@@ -45,8 +45,6 @@ class CaptionTask(BaseTask):
         )
 
     def valid_step(self, model, samples):
-        results = []
-
         # run_cfg = slf.cfg.run_cfg
         captions = model.generate(
             samples,
@@ -57,27 +55,26 @@ class CaptionTask(BaseTask):
         )
 
         img_ids = samples["image_id"]
-        for caption, img_id in zip(captions, img_ids):
-            results.append({"caption": caption, "image_id": int(img_id)})
-
-        return results
+        return [
+            {"caption": caption, "image_id": int(img_id)}
+            for caption, img_id in zip(captions, img_ids)
+        ]
 
     def after_evaluation(self, val_result, split_name, epoch, **kwargs):
         eval_result_file = self.save_result(
             result=val_result,
             result_dir=registry.get_path("result_dir"),
-            filename="{}_epoch{}".format(split_name, epoch),
+            filename=f"{split_name}_epoch{epoch}",
             remove_duplicate="image_id",
         )
 
-        if self.report_metric:
-            metrics = self._report_metrics(
+        return (
+            self._report_metrics(
                 eval_result_file=eval_result_file, split_name=split_name
             )
-        else:
-            metrics = {"agg_metrics": 0.0}
-
-        return metrics
+            if self.report_metric
+            else {"agg_metrics": 0.0}
+        )
 
     @main_process
     def _report_metrics(self, eval_result_file, split_name):
@@ -87,14 +84,14 @@ class CaptionTask(BaseTask):
         coco_val = coco_caption_eval(coco_gt_root, eval_result_file, split_name)
 
         agg_metrics = coco_val.eval["CIDEr"] + coco_val.eval["Bleu_4"]
-        log_stats = {split_name: {k: v for k, v in coco_val.eval.items()}}
+        log_stats = {split_name: dict(coco_val.eval.items())}
 
         with open(
             os.path.join(registry.get_path("output_dir"), "evaluate.txt"), "a"
         ) as f:
             f.write(json.dumps(log_stats) + "\n")
 
-        coco_res = {k: v for k, v in coco_val.eval.items()}
+        coco_res = dict(coco_val.eval.items())
         coco_res["agg_metrics"] = agg_metrics
 
         return coco_res

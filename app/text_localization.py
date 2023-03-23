@@ -46,11 +46,7 @@ def app():
 
     col1, col2 = st.columns(2)
 
-    if file:
-        raw_img = Image.open(file).convert("RGB")
-    else:
-        raw_img = load_demo_image()
-
+    raw_img = Image.open(file).convert("RGB") if file else load_demo_image()
     col1.header("Image")
     w, h = raw_img.size
     scaling_factor = 720 / w
@@ -95,11 +91,7 @@ def app():
                     word = tokenizer.decode([token_id])
                     gradcam_todraw = getAttMap(norm_img, gradcam_img, blur=True)
 
-                    new_title = (
-                        '<p style="text-align: center; font-size: 25px;">{}</p>'.format(
-                            word
-                        )
-                    )
+                    new_title = f'<p style="text-align: center; font-size: 25px;">{word}</p>'
                     col.markdown(new_title, unsafe_allow_html=True)
                     # st.image(image, channels="BGR")
                     col.image(gradcam_todraw, use_column_width=True, clamp=True)

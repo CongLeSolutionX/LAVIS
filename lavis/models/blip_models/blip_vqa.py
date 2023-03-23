@@ -210,9 +210,7 @@ class BlipVQA(BlipBase):
         assert inference_method in [
             "rank",
             "generate",
-        ], "Inference method must be one of 'rank' or 'generate', got {}.".format(
-            inference_method
-        )
+        ], f"Inference method must be one of 'rank' or 'generate', got {inference_method}."
 
         if isinstance(samples["text_input"], str):
             samples["text_input"] = [samples["text_input"]]
@@ -319,7 +317,7 @@ class BlipVQA(BlipBase):
         # answer input: [num_question*k, answer_len]
         input_ids = []
         input_atts = []
-        for b, topk_id in enumerate(topk_ids):
+        for topk_id in topk_ids:
             input_ids.append(answer_ids.index_select(dim=0, index=topk_id))
             input_atts.append(answer_atts.index_select(dim=0, index=topk_id))
         input_ids = torch.cat(input_ids, dim=0)
@@ -349,9 +347,7 @@ class BlipVQA(BlipBase):
         max_topk_ids = log_probs_sum.argmax(dim=1)
         max_ids = topk_ids[max_topk_ids >= 0, max_topk_ids]
 
-        answers = [answer_list[max_id] for max_id in max_ids]
-
-        return answers
+        return [answer_list[max_id] for max_id in max_ids]
 
     @classmethod
     def from_config(cls, cfg=None):

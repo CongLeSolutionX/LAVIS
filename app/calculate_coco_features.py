@@ -23,15 +23,11 @@ def load_demo_image():
     img_url = (
         "https://storage.googleapis.com/sfr-vision-language-research/BLIP/demo.jpg"
     )
-    raw_image = Image.open(requests.get(img_url, stream=True).raw).convert("RGB")
-
-    return raw_image
+    return Image.open(requests.get(img_url, stream=True).raw).convert("RGB")
 
 
 def read_img(filepath):
-    raw_image = Image.open(filepath).convert("RGB")
-
-    return raw_image
+    return Image.open(filepath).convert("RGB")
 
 
 # model
@@ -54,7 +50,7 @@ print(len(filepaths))
 
 caption = "dummy"
 
-path2feat = dict()
+path2feat = {}
 bsz = 256
 
 images_in_batch = []

@@ -48,7 +48,7 @@ class AOKVQADataset(VQADataset, __DisplMixin):
 
         answer_weight = {}
         for answer in ann[answer_key]:
-            if answer in answer_weight.keys():
+            if answer in answer_weight:
                 answer_weight[answer] += 1 / len(ann[answer_key])
             else:
                 answer_weight[answer] = 1 / len(ann[answer_key])
@@ -138,11 +138,7 @@ class AOKVQAEvalDataset(VQAEvalDataset, __DisplMixin):
         else:
             correct_choice_idx = None
 
-        if "direct_answers" in ann:
-            direct_answers = ann["direct_answers"]
-        else:
-            direct_answers = None
-
+        direct_answers = ann["direct_answers"] if "direct_answers" in ann else None
         return {
             "image": image,
             "text_input": question,
